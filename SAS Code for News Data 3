@@ -1,0 +1,394 @@
+
+options mprint;
+
+%macro upload (reg); *uploading from country specific output destination;
+
+data E_&reg.;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\E_&reg..csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Day 			$3.;
+informat Region 		$32.;
+informat Category 		$32.;
+informat Event 			$100.;
+informat Period 		$32.;
+informat Surv_Med 		best32.;
+informat Actual 		best32.;
+informat Surv_Avg 		best32.;
+informat Std_Dev_Surv 	best32.;
+informat Prior 			best32.;
+informat Revised 		best32.;
+informat Last_Rev 		best32.;
+informat Surp_Bloom 	best32.;
+informat S		 		best32.;
+informat Ticker 		$32.;
+informat Code			$5.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Day 				$3.;
+format Region 			$32.;
+format Category 		$32.;
+format Event 			$100.;
+format Period 			$32.;
+format Surv_Med 		best32.;
+format Actual 			best32.;
+format Surv_Avg 		best32.;
+format Std_Dev_Surv 	best32.;
+format Prior 			best32.;
+format Revised 			best32.;
+format Last_Rev 		best32.;
+format Surp_Bloom 		best32.;
+format S		 		best32.;
+format Ticker 			$32.;
+format Code				$5.;
+			
+input Date
+	  Time
+	  Day $
+      Region $
+      Category $
+      Event $
+      Period $
+      Surv_Med
+	  Actual
+      Surv_Avg
+      Std_Dev_Surv
+      Prior
+      Revised
+      Last_Rev
+      Surp_Bloom
+	  S
+	  Ticker $
+	  Code $;
+run;
+
+%mend upload;
+
+%upload (US);
+
+%macro news_vars (reg, count);
+
+data %do i= 1 %to &count.; &reg.&i. %end;;
+set E_&reg.;
+
+%do i= 1 %to &count.;
+
+if Code= "&reg.&i" then output &reg.&i.;
+
+%end;
+run;
+
+%mend news_vars;
+
+%news_vars (US, 31);
+
+%macro calculate_surprise (reg, count); *calculating surprise for eco news observations;
+
+%do i= 1 %to &count.;
+
+data &reg.&i.;
+set &reg.&i.;
+
+if Actual= 9999 or Surv_Med= 9999 then delete;
+
+PS_&reg.&i.= 1;
+Surp_B_&reg.&i.= Surp_Bloom;
+SD_B_&reg.&i.= Std_Dev_Surv;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+
+Diff_&reg.&i.= Actual-Surv_Med;
+Ratio_&reg.&i.= Actual/Surv_Med;
+run;
+
+proc sql;
+create table E_&reg.&i. as
+select *, STD(Diff_&reg.&i.) as SD_&reg.&i., Diff_&reg.&i./STD(Diff_&reg.&i.) as Surp_&reg.&i. from &reg.&i.;
+quit;
+
+proc sort data= E_&reg.&i.;
+by Date Interval;
+run;
+
+proc means data= E_&reg.&i. nway noprint; *calculating yearly surprise;
+class Year;
+output out= YSE_&reg.&i. STD(Diff_&reg.&i.)= YSD_&reg.&i.;
+run;
+
+proc sort data= E_&reg.&i.;
+by Date Year;
+run;
+
+proc sort data= YSE_&reg.&i.;
+by Year;
+run;
+
+data E_&reg.&i.;
+merge E_&reg.&i. YSE_&reg.&i.;
+by Year;
+run;
+
+proc sort data= E_&reg.&i.;
+by Date Interval;
+run;
+
+data E_&reg.&i.;
+set E_&reg.&i.;
+
+YSurp_&reg.&i.= Diff_&reg.&i./YSD_&reg.&i.;
+run;
+
+data E_&reg.&i.;
+set E_&reg.&i.;
+
+keep Date Time Interval PS_&reg.&i. Diff_&reg.&i. SD_&reg.&i. SD_B_&reg.&i. YSD_&reg.&i. Surp_&reg.&i. Surp_B_&reg.&i. YSurp_&reg.&i. Ratio_&reg.&i.;
+run;
+
+proc sort data= E_&reg.&i.;
+by Date Interval;
+run;
+
+%end;
+
+%mend calculate_surprise;
+
+%calculate_surprise (US, 27);
+
+%macro merging_news_e (reg, count); *merge economic news dummy variables;
+
+data E_&reg.;
+merge %do i= 1 %to &count.; E_&reg.&i. %end;;
+by Date Interval;
+run;
+
+proc sort data= E_&reg.;
+by Date Interval;
+run;
+
+data E_&reg.;
+set E_&reg.;
+
+if Date= . or Time= . then delete;
+run;
+
+data E_&reg.;
+set E_&reg.;
+
+%do i= 1 %to &count.;
+
+if PS_&reg.&i.= .		then PS_&reg.&i.= 0;
+if Diff_&reg.&i.= . 	then Diff_&reg.&i.= 0;
+if SD_&reg.&i.= .		then SD_&reg.&i.= 0;
+if SD_B_&reg.&i.= .		then SD_B_&reg.&i.= 0;
+if YSD_&reg.&i.= .		then YSD_&reg.&i.= 0;
+if Surp_&reg.&i.= .		then Surp_&reg.&i.=0;
+if Surp_B_&reg.&i.= .	then Surp_B_&reg.&i.= 0;
+if YSurp_&reg.&i.= .	then YSurp_&reg.&i.=0;
+if Ratio_&reg.&i.= .	then Ratio_&reg.&i.= 0;
+
+%end;
+run;
+
+proc sort data= E_&reg.;
+by Date Interval;
+run;
+
+%mend merging_news_e;
+
+%merging_news_e (US, 27);
+
+%macro required_columns (reg, count); *keeping only the required variables for the eco news dataset;
+
+data E_&reg._Final;
+retain Date Time Interval %do i= 1 %to &count.; PS_&reg.&i. Diff_&reg.&i. SD_&reg.&i. SD_B_&reg.&i. YSD_&reg.&i.
+												Surp_&reg.&i. Surp_B_&reg.&i. YSurp_&reg.&i. Ratio_&reg.&i. %end;;
+set E_&reg.;
+run;
+
+proc sort data= E_&reg._Final nodupkey dupout= Dup;
+by Date Interval;
+run;
+
+%mend required_columns;
+
+%required_columns (US, 27);
+
+%macro central_bank (reg, begin, end); *calculating surprise for numeric central bank news observations;
+									   *keeping all the central bank news together;
+%do i= &begin. %to &end.;
+
+%if &i.= 28 or &i.= 29 %then %do;
+
+data &reg.&i.;
+set &reg.&i.;
+
+if Actual= 9999 or Surv_Med= 9999 then delete;
+
+PS_&reg.&i.= 1;
+Surp_B_&reg.&i.= Surp_Bloom;
+SD_B_&reg.&i.= Std_Dev_Surv;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+
+Diff_&reg.&i.= Actual-Surv_Med;
+Ratio_&reg.&i.= Actual/Surv_Med;
+run;
+
+proc sql;
+create table C_&reg.&i. as
+select *, STD(Diff_&reg.&i.) as SD_&reg.&i., Diff_&reg.&i./STD(Diff_&reg.&i.) as Surp_&reg.&i. from &reg.&i.;
+quit;
+
+proc sort data= C_&reg.&i.;
+by Date Interval;
+run;
+
+proc means data= C_&reg.&i. nway noprint; *calculating yearly surprise;
+class Year;
+output out= YSC_&reg.&i. STD(Diff_&reg.&i.)= YSD_&reg.&i.;
+run;
+
+proc sort data= C_&reg.&i.;
+by Date Year;
+run;
+
+proc sort data= YSC_&reg.&i.;
+by Year;
+run;
+
+data C_&reg.&i.;
+merge C_&reg.&i. YSC_&reg.&i.;
+by Year;
+run;
+
+proc sort data= C_&reg.&i.;
+by Date Interval;
+run;
+
+data C_&reg.&i.;
+set C_&reg.&i.;
+
+YSurp_&reg.&i.= Diff_&reg.&i./YSD_&reg.&i.;
+run;
+
+data C_&reg.&i.;
+set C_&reg.&i.;
+
+keep Date Time Interval PS_&reg.&i. Diff_&reg.&i. SD_&reg.&i. SD_B_&reg.&i. YSD_&reg.&i. Surp_&reg.&i. Surp_B_&reg.&i. YSurp_&reg.&i. Ratio_&reg.&i.;
+run;
+
+proc sort data= C_&reg.&i.;
+by Date Interval;
+run;
+
+%end;
+
+%else %if &i.= 30 or &i.= 31 %then %do;
+
+data C_&reg.&i.;
+set &reg.&i.;
+
+PS_&reg.&i.= 1;
+Interval= (int(Time)/300)+1;
+
+keep Date Time Interval PS_&reg.&i.;
+run;
+
+proc sort data= C_&reg.&i.;
+by Date Interval;
+run;
+
+%end;
+
+%end;
+
+%mend central_bank;
+
+%central_bank (US, 28, 31);
+
+%macro merging_news_c (reg, begin, end); 
+
+data C_&reg.;
+merge %do i= &begin. %to &end.; C_&reg.&i. %end;;
+by Date Interval;
+run;
+
+proc sort data= C_&reg.;
+by Date Interval;
+run;
+
+data C_&reg.;
+set C_&reg.;
+
+if Date= . or Time= . then delete;
+run;
+
+data C_&reg.;
+set C_&reg.;
+
+%do i= &begin. %to &end.;
+
+if PS_&reg.&i.= .		then PS_&reg.&i.= 0;
+
+%if &i.= 28 or &i.= 29 %then %do;
+
+if Diff_&reg.&i.= . 	then Diff_&reg.&i.= 0;
+if SD_&reg.&i.= .		then SD_&reg.&i.= 0;
+if SD_B_&reg.&i.= .		then SD_B_&reg.&i.= 0;
+if YSD_&reg.&i.= .		then YSD_&reg.&i.= 0;
+if Surp_&reg.&i.= .		then Surp_&reg.&i.=0;
+if Surp_B_&reg.&i.= .	then Surp_B_&reg.&i.= 0;
+if YSurp_&reg.&i.= .	then YSurp_&reg.&i.=0;
+if Ratio_&reg.&i.= .	then Ratio_&reg.&i.= 0;
+
+%end;
+
+%end;
+run;
+
+proc sort data= C_&reg.;
+by Date Interval;
+run;
+
+%mend merging_news_c;
+
+%merging_news_c (US, 28, 31);
+
+%macro required_columns_c (reg);
+
+data C_&reg.;
+retain Date Time Interval PS_&reg.28 Diff_&reg.28 SD_&reg.28 SD_B_&reg.28 YSD_&reg.28 Surp_&reg.28 Surp_B_&reg.28 YSurp_&reg.28 Ratio_&reg.28
+						  PS_&reg.29 Diff_&reg.29 SD_&reg.29 SD_B_&reg.29 YSD_&reg.29 Surp_&reg.29 Surp_B_&reg.29 YSurp_&reg.29 Ratio_&reg.29
+						  PS_&reg.30 PS_&reg.31;
+set C_&reg.;
+run;
+
+proc sort data= C_&reg. nodupkey dupout= Dup;
+by Date Interval;
+run;
+
+%mend required_columns_c;
+
+%required_columns_c (US);
+
+%macro exporting (reg);
+
+proc export data= E_&reg._Final dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\E_&reg._Final.csv" 
+replace;
+run;
+
+proc export data= C_&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\C_&reg..csv" 
+replace;
+run;
+
+%mend exporting;
+
+%exporting (US);
