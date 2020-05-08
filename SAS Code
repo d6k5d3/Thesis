@@ -1,0 +1,384 @@
+
+options mprint;
+
+%macro upload (cur, typ); *uploading quotes from original file destination;
+
+data &cur._&typ.;
+
+infile "C:\Users\Deepan\OneDrive - Brock University\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\1-Quotes_HUN\Data\&cur._&typ..csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			ddmmyy10.;
+informat Time 			time20.3;
+informat Open 			best32.;
+informat High 			best32.;
+informat Low 			best32.;
+informat &typ._Close 	best32.;
+informat Volume 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Open 			best16.;
+format High 			best16.;
+format Low 				best16.;
+format &typ._Close 		12.6;
+format Volume 			best16.;
+
+input Date
+	  Time
+	  Open
+	  High
+	  Low
+	  &typ._Close
+	  Volume;
+run;
+
+proc sort data= &cur._&typ.;
+by Date Time;
+run;
+
+%mend upload;
+
+%upload (HUF, Ask);
+%upload (HUF, Bid);
+
+%macro merging (cur); *merging ask and bid data for the currency;
+	
+data &cur.;
+
+merge &cur._Ask (keep= Date Time Ask_Close)
+	  &cur._Bid (keep= Date Time Bid_Close);
+by Date Time;
+run;
+
+proc sort data= &cur.;
+by Date Time;
+run;
+
+%mend merging;
+
+%merging (HUF);
+
+%macro calculate_vars (cur); *calculating some variables;
+	
+data &cur.;
+set &cur.;
+
+Year= year(Date);
+Day= put(Date, weekdate3.);
+Price= (Ask_Close+Bid_Close)/2;
+Lag_price= lag(Price);
+Return= (log(Price)-log(lag_price))*100;
+Volatility= abs(Return);
+Interval= (int(Time)/300)+1;
+
+if Return=. or Volatility= . then delete;
+if Day= "Sun" then delete; *deleting Sundays to remove weekend effects;
+drop Lag_price;
+run;
+
+%mend calculate_vars;
+
+%calculate_vars (HUF);
+
+/*
+%macro remove_holidays (cur); *removing US holidays only;
+
+data &cur.;
+set &cur.;
+
+if Date= holiday('NEWYEAR', Year) 			then delete;   
+if Date= holiday('MLK', Year) 				then delete;         
+if Date= holiday('USPRESIDENTS', Year) 		then delete;         
+if Date= holiday('MEMORIAL', Year) 			then delete;         
+if Date= holiday('USINDEPENDENCE', Year) 	then delete;         
+if Date= holiday('LABOR', Year) 			then delete;         
+if Date= holiday('COLUMBUS', Year) 			then delete;         
+if Date= holiday('VETERANS', Year) 			then delete;         
+if Date= holiday('THANKSGIVING', Year) 		then delete;         
+if Date= holiday('CHRISTMAS', Year) 		then delete;
+run;
+
+%mend remove_holidays;
+
+%remove_holidays (HUF);
+*/
+
+%macro delete_days_for_0_return (cur);
+
+data Zero_Returns; *calculating number of incidents of zero returns everyday;
+set &cur.;			*and number of zero returns in each of those incidents;
+by Date Return notsorted;
+
+if first.Date then Incident_No= 0;
+if first.Return then Consecutive_Zero= 1;
+else Consecutive_Zero+1;
+if last.Return;
+if Return= 0;
+Incident_No+1;
+
+keep Date Time Day Return Year Incident_No Consecutive_Zero;
+run;
+
+data Days_0;
+set Zero_Returns;
+
+if Consecutive_Zero>=12;
+keep Date Incident_No Consecutive_Zero;
+run;
+
+proc sort data= Days_0;
+by Date;
+run;
+
+proc sort data= &cur.;
+by Date;
+run;
+
+data &cur.;
+merge &cur. Days_0;
+by Date;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+data &cur.;
+retain Date Time Interval Day Year;
+set &cur.;
+
+if Consecutive_Zero= .;
+drop Incident_No Consecutive_Zero;
+run;
+
+%mend delete_days_for_0_return;
+
+%delete_days_for_0_return (HUF);
+
+%macro standardize (cur); *creating summary and standardizing the quote data;
+
+proc means data= &cur. nway noprint; *working out yearly effect: each year for each interval;
+class Year Interval;
+output out= &cur._Summary1 mean (Volatility)= Volatility_YAvg;
+run;
+
+proc sort data= &cur.;
+by Year Interval;
+run;
+
+proc sort data= &cur._Summary1;
+by Year Interval;
+run;
+
+data &cur.;
+merge &cur. &cur._Summary1;
+by Year Interval;
+
+drop _TYPE_ _FREQ_;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+proc means data= &cur. nway noprint; *working out daily effect: each year in each weekday for each interval;
+class Year Day Interval;
+output out= &cur._Summary2 mean (Volatility)= Volatility_DAvg;
+run;
+
+proc sort data= &cur.;
+by Year Day Interval;
+run;
+
+proc sort data= &cur._Summary2;
+by Year Day Interval;
+run;
+
+data &cur.;
+merge &cur. &cur._Summary2;
+by Year Day Interval;
+
+drop _TYPE_ _FREQ_;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+proc means data= &cur. nway noprint; *for the whole sample: for each interval only;
+class Interval;
+output out= &cur._Summary3 mean (Volatility)= Volatility_SAvg;
+run;
+
+proc sort data= &cur.;
+by Interval;
+run;
+
+proc sort data= &cur._Summary3;
+by Interval;
+run;
+
+data &cur.;
+merge &cur. &cur._Summary3;
+by Interval;
+
+drop _TYPE_ _FREQ_;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+data &cur.;
+set &cur.;
+
+Return_S= Return/Volatility_SAvg;
+run;
+
+%mend standardize;
+
+%standardize (HUF);
+
+%macro day_effect1 (cur);
+
+proc means data= &cur. nway noprint; *for each weekday;
+class Day Interval;
+output out= &cur._Day_Interval mean (Volatility)= Volatility_DAvg;
+run;
+
+data Mon Tue Wed Thu Fri;
+set &cur._Day_Interval;
+
+if Day= "Mon" then output Mon;
+if Day= "Tue" then output Tue;
+if Day= "Wed" then output Wed;
+if Day= "Thu" then output Thu;
+if day= "Fri" then output Fri;
+run;
+
+%mend day_effect1;
+
+%day_effect1 (HUF);
+
+%macro day_effect2 (cur, day);
+
+data &day.;
+set &day.;
+
+rename Volatility_DAvg= Volatility_&day._Avg;
+run;
+
+proc sort data= &day.;
+by Day Interval;
+run;
+
+proc sort data= &cur.;
+by Day Interval;
+run;
+
+data &cur.;
+merge &cur. &day. (keep= Day Interval Volatility_&day._Avg);
+by Day Interval;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+data &cur.;
+set &cur.;
+
+if Volatility_&day._Avg= . then Volatility_&day._Avg= 0;
+run;
+
+%mend day_effect2;
+
+%day_effect2 (HUF, Mon);
+%day_effect2 (HUF, Tue);
+%day_effect2 (HUF, Wed);
+%day_effect2 (HUF, Thu);
+%day_effect2 (HUF, Fri);
+
+%macro plot_data (day, cur);
+
+proc sort data= &cur._Summary3;
+by Interval;
+run;
+
+proc sort data= &day.;
+by Interval;
+run;
+
+data &day._Interval;
+merge &day. (keep= Day Interval Volatility_&day._Avg)
+	  &cur._Summary3 (keep= Interval Volatility_SAvg);
+by Interval;
+run;
+
+%mend plot_data;
+
+%plot_data (Mon, HUF);
+%plot_data (Tue, HUF);
+%plot_data (Wed, HUF);
+%plot_data (Thu, HUF);
+%plot_data (Fri, HUF);
+
+%macro FFF (cur);
+
+data FFF_&cur.;
+set &cur.;
+
+num= Interval;
+nobs= 288;
+
+p= 1;
+Sin1= sin( 2 * p * constant("pi")*num/nobs);
+Cos1= cos( 2 * p * constant("pi")*num/nobs);
+p= 2;
+Sin2= sin( 2 * p * constant("pi")*num/nobs);
+Cos2= cos( 2 * p * constant("pi")*num/nobs);
+p= 3;
+Sin3= sin( 2 * p * constant("pi")*num/nobs);
+Cos3= cos( 2 * p * constant("pi")*num/nobs);
+p= 4;
+Sin4= sin( 2 * p * constant("pi")*num/nobs);
+Cos4= cos( 2 * p * constant("pi")*num/nobs);
+
+keep Date Time Interval Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+%mend FFF;
+
+%FFF (HUF);
+
+%macro exporting (cur, reg); *exporting to country specific output destination;
+
+proc export data= &cur. dbms= csv
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\1-Quotes_&reg.\Output\&cur..csv" 
+replace;
+run;
+
+proc export data= FFF_&cur. dbms= csv
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\1-Quotes_&reg.\Output\FFF_&cur..csv" 
+replace;
+run;
+
+%mend exporting;
+
+%exporting (HUF, HUN);
+
+%macro exporting_plot (reg, day); *plot data;
+
+proc export data= &day._Interval dbms= csv
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\1-Quotes_&reg.\Output\&day._Interval.csv" 
+replace;
+run;
+
+%mend exporting_plot;
+
+%exporting_plot (HUN, Mon);
+%exporting_plot (HUN, Tue);
+%exporting_plot (HUN, Wed);
+%exporting_plot (HUN, Thu);
+%exporting_plot (HUN, Fri);
