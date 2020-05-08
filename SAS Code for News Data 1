@@ -1,0 +1,217 @@
+
+options mprint;
+
+%macro upload (reg, count); *uploading eco news data from original file destination;
+
+%do i= 1 %to &count;
+
+data &reg._&i.;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Data\&reg._&i..csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date_Time 		anydtdtm40.;
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Day 			$3.;
+informat Country_Region $32.;
+informat Category 		$32.;
+informat Event 			$100.;
+informat Period 		$32.;
+informat Surv_M_ 		$32.;
+informat Surv_A_ 		$32.;
+informat Std_Dev 		$32.;
+informat Actual 		$32.;
+informat Prior 			$32.;
+informat Revised 		$32.;
+informat Last_Rev_ 		$32.;
+informat Surprise 		$32.;
+informat S 				best32.;
+informat Ticker 		$32.;
+
+format Date_Time 		datetime.;
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Day 				$3.;
+format Country_Region 	$32.;
+format Category 		$32.;
+format Event 			$100.;
+format Period 			$32.;
+format Surv_M_ 			$32.;
+format Surv_A_ 			$32.;
+format Std_Dev 			$32.;
+format Actual 			$32.;
+format Prior 			$32.;
+format Revised 			$32.;
+format Last_Rev_ 		$32.;
+format Surprise 		$32.;
+format S 				best12.;
+format Ticker 			$32.;
+
+input Date_Time
+	  Date
+	  Time
+	  Day $
+      Country_Region $
+      Category $
+      Event $
+      Period $
+      Surv_M_ $
+      Surv_A_ $
+      Std_Dev $
+      Actual $
+      Prior $
+      Revised $
+      Last_Rev_ $
+      Surprise $
+      S
+	  Ticker $;
+run;
+
+%end;
+
+%mend upload;
+
+%upload (US, 57);
+
+%macro combine (reg, count); *combining all datasets for each country;
+
+data &reg.;
+set %do i= 1 %to &count;
+&reg._&i. %end;;
+run;
+
+%mend combine;
+
+%combine (US, 57);
+
+%macro sorting (reg); *sorting the dataset;
+
+proc sort data= &reg.;
+by Date Time;
+run;
+
+%mend sorting;
+
+%sorting (US);
+
+%macro remove_empty (reg); *deleting missing/ empty rows and renaming variables;
+
+data &reg.;
+set &reg.;
+
+if Date= . or Time= . then delete;
+drop Date_Time;
+
+rename Country_Region= Region;
+rename Surv_M_= Surv_Med;
+rename Surv_A_= Surv_Avg;
+rename Std_Dev= Std_Dev_Surv;
+rename Last_Rev_= Last_Rev;
+rename Surprise= Surp_Bloom;
+run;
+
+%mend remove_empty;
+
+%remove_empty (US);
+
+%macro missing_value (reg); *denoting missing values by 9999;
+
+data &reg.;
+set &reg.;
+
+if Surv_Med= '--' 		or 	Surv_Med= ' ' 		then 	Surv_Med= 9999;
+if Surv_Avg= '--' 		or 	Surv_Avg= ' ' 		then 	Surv_Avg= .;
+if Std_Dev_Surv= '--' 	or 	Std_Dev_Surv= ' ' 	then	Std_Dev_Surv= .;
+if Actual= '--' 		or 	Actual= ' ' 		then	Actual= 9999;
+if Prior= '--' 			or 	Prior= ' ' 			then	Prior= .;
+if Revised= '--' 		or 	Revised= ' ' 		then	Revised= .;
+if Last_Rev= '--' 		or 	Last_Rev= ' ' 		then	Last_Rev= .;
+if Surp_Bloom= '--' 	or 	Surp_Bloom= ' ' 	then	Surp_Bloom= .;
+run;
+
+%mend missing_value;
+
+%missing_value (US);
+
+%macro char_to_num (reg); *formatting variables: from character to numeric;
+
+data &reg.;
+set &reg.;
+
+SurvM= input(Surv_Med, best32.);
+format SurvM best32.;
+drop Surv_Med;
+rename SurvM= Surv_Med;
+
+SurvA= input(Surv_Avg, best32.);
+format SurvA best32.;
+drop Surv_Avg;
+rename SurvA= Surv_Avg;
+
+STD= input(Std_Dev_Surv, best32.);
+format STD best32.;
+drop Std_Dev_Surv;
+rename STD= Std_Dev_Surv;
+
+Act= input(Actual, best32.);
+format Act best32.;
+drop Actual;
+rename Act= Actual;
+
+Pri= input(Prior, best32.);
+format Pri best32.;
+drop Prior;
+rename Pri= Prior;
+
+Rev= input(Revised, best32.);
+format Rev best32.;
+drop Revised;
+rename Rev= Revised;
+
+LR= input(Last_Rev, best32.);
+format LR best32.;
+drop Last_Rev;
+rename LR= Last_Rev;
+
+Surp= input(Surp_Bloom, best32.);
+format Surp best32.;
+drop Surp_Bloom;
+rename Surp= Surp_Bloom;
+
+S1= input(S, best32.);
+format S1 best32.;
+drop S;
+rename S1= S;
+
+*drop S Ticker;
+run;
+
+data &reg.;
+retain Date Time Day Region Category Event Period Surv_Med Actual Surv_Avg Std_Dev_Surv Prior Revised Last_Rev Surp_Bloom S Ticker;
+set &reg.;
+run;
+
+%mend char_to_num;
+
+%char_to_num (US);
+
+proc contents data= US; *checking the format of the variables;
+run;
+
+%macro exporting (reg); *exporting to country specific output destination;
+
+proc export data= &reg. dbms= xlsx 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\&reg..xlsx" 
+replace;
+run;
+
+proc export data= &reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\&reg..csv" 
+replace;
+
+run;
+
+%mend exporting;
+
+%exporting (US); *159270 rows;
