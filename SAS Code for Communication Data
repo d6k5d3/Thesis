@@ -1,0 +1,258 @@
+
+options mprint;
+
+data US; *uploading US master file;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Data\US.csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Day 			$3.;
+informat Region 		$32.;
+informat Category 		$32.;
+informat Event 			$100.;
+informat Period 		$32.;
+informat Surv_Med 		best32.;
+informat Actual 		best32.;
+informat Surv_Avg 		best32.;
+informat Std_Dev_Surv 	best32.;
+informat Prior 			best32.;
+informat Revised 		best32.;
+informat Last_Rev 		best32.;
+informat Surp_Bloom 	best32.;
+informat S		 		best32.;
+informat Ticker 		$32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Day 				$3.;
+format Region 			$32.;
+format Category 		$32.;
+format Event 			$100.;
+format Period 			$32.;
+format Surv_Med 		best32.;
+format Actual 			best32.;
+format Surv_Avg 		best32.;
+format Std_Dev_Surv 	best32.;
+format Prior 			best32.;
+format Revised 			best32.;
+format Last_Rev 		best32.;
+format Surp_Bloom 		best32.;
+format S		 		best32.;
+format Ticker 			$32.;
+			
+input Date
+	  Time
+	  Day $
+      Region $
+      Category $
+      Event $
+      Period $
+      Surv_Med
+	  Actual
+      Surv_Avg
+      Std_Dev_Surv
+      Prior
+      Revised
+      Last_Rev
+      Surp_Bloom
+	  S
+	  Ticker $;
+run;
+
+proc sort data= US; *sorting before extracting;
+by Date Time;
+run;
+
+data Speech; *extracting speech events. speakers from Fed and Treasury over 2007-2018;
+set US;
+
+length Speaker $12.;
+if Region= "United States";
+if Category= "Central Banks";
+drop Period Surv_Med Surv_Avg Std_Dev_Surv Actual Prior Revised Last_Rev Surp_Bloom S Ticker;
+
+
+if find (Event,"Bernanke") 		then do;	Speaker= "Bernanke";	 SP1= 1;	end;	else SP1= 0;	*Ben Bernanke, Fed;
+if find (Event,"Brainard") 		then do;	Speaker= "Brainard";	 SP2= 1;	end;	else SP2= 0;	*Lael Brainard, Fed;
+if find (Event,"Bullard") 		then do;	Speaker= "Bullard";		 SP3= 1;	end;	else SP3= 0;	*James B. Bullard, Fed;
+if find (Event,"Dudley") 		then do;	Speaker= "Dudley";		 SP4= 1; 	end;	else SP4= 0; 	*William C. Dudley, Fed;
+if find (Event,"Duke") 			then do;	Speaker= "Duke";		 SP5= 1; 	end;	else SP5= 0; 	*Elizabeth Ashburn Duke, Fed;
+if find (Event,"Evans") 		then do;	Speaker= "Evans";		 SP6= 1; 	end;	else SP6= 0; 	*Charles L. Evans, Fed;
+if find (Event,"Fisher") 		then do;	Speaker= "Fisher";		 SP7= 1; 	end;	else SP7= 0; 	*Richard W. Fisher, Fed;
+if find (Event,"Geithner") 		then do;	Speaker= "Geithner";	 SP8= 1; 	end;	else SP8= 0;	*Timothy Geithner, Fed;
+if find (Event,"George") 		then do;	Speaker= "George";		 SP9= 1; 	end;	else SP9= 0;	*Esther George, Fed;
+if find (Event,"Greenspan") 	then do;	Speaker= "Greenspan";	 SP10= 1; 	end;	else SP10= 0;	*Alan Greenspan, Fed;
+if find (Event,"Harker") 		then do;	Speaker= "Harker";		 SP11= 1; 	end;	else SP11= 0;	*Patrick T. Harker, Fed;
+if find (Event,"Hoenig") 		then do;	Speaker= "Hoenig";		 SP12= 1; 	end;	else SP12= 0;	*Thomas M. Hoenig, Fed;
+if find (Event,"Kaplan") 		then do;	Speaker= "Kaplan";		 SP13= 1; 	end;	else SP13= 0;	*Robert Steven Kaplan, Fed;
+if find (Event,"Kashkari") 		then do;	Speaker= "Kashkari";	 SP14= 1; 	end;	else SP14= 0;	*Neel Kashkari, Fed;
+if find (Event,"Kimmit") 		then do;	Speaker= "Kimmit";		 SP15= 1; 	end;	else SP15= 0;	*Robert M. Kimmitt, Treasury;
+if find (Event,"Kocherlakota") 	then do;	Speaker= "Kocherlakota"; SP16= 1; 	end;	else SP16= 0;	*Narayana Kocherlakota, Fed;
+if find (Event,"Kohn") 			then do;	Speaker= "Kohn";		 SP17= 1; 	end;	else SP17= 0;	*Donald Kohn, Fed VC;
+if find (Event,"Kroszner") 		then do;	Speaker= "Kroszner";	 SP18= 1; 	end;	else SP18= 0;	*Randall Kroszner, Fed;
+if find (Event,"Krueger") 		then do;	Speaker= "Krueger";		 SP19= 1; 	end;	else SP19= 0;	*Alan Krueger, Treasury;
+if find (Event,"Lacker") 		then do;	Speaker= "Lacker";		 SP20= 1; 	end;	else SP20= 0;	*Jeffrey M. Lacker, Fed;
+if find (Event,"Lockhart") 		then do;	Speaker= "Lockhart";	 SP21= 1; 	end;	else SP21= 0;	*Dennis P. Lockhart, Fed;
+if find (Event,"McCormick") 	then do;	Speaker= "McCormick";	 SP22= 1; 	end;	else SP22= 0;	*David McCormick, Treasury;
+if find (Event,"Mester") 		then do;	Speaker= "Mester";		 SP23= 1; 	end;	else SP23= 0;	*Loretta J. Mester, Fed;
+if find (Event,"Mishkin") 		then do;	Speaker= "Mishkin";		 SP24= 1; 	end;	else SP24= 0;	*Frederic Mishkin, Fed;
+if find (Event,"Paulson") 		then do;	Speaker= "Paulson";		 SP25= 1; 	end;	else SP25= 0;	*Henry Paulson, Treasury;
+if find (Event,"Pianalto") 		then do;	Speaker= "Pianalto";	 SP26= 1; 	end;	else SP26= 0;	*Sandra Pianalto, Fed;
+if find (Event,"Plosser") 		then do;	Speaker= "Plosser";		 SP27= 1; 	end;	else SP27= 0;	*Charles Plosser, Fed;
+if find (Event,"Powell") 		then do;	Speaker= "Powell";		 SP28= 1; 	end;	else SP28= 0;	*Jerome Powell, Fed;
+if find (Event,"Rosengren") 	then do;	Speaker= "Rosengren";	 SP29= 1; 	end;	else SP29= 0;	*Eric Rosengren, Fed;
+if find (Event,"Steel") 		then do;	Speaker= "Steel";		 SP30= 1; 	end;	else SP30= 0;	*Robert K. Steel, Treasury;
+if find (Event,"Stein") 		then do;	Speaker= "Stein";		 SP31= 1; 	end;	else SP31= 0;	*Jeremy C. Stein, Fed;
+if find (Event,"Stern") 		then do;	Speaker= "Stern";		 SP32= 1; 	end;	else SP32= 0;	*Gary H. Stern, Fed;
+if find (Event,"Tarullo") 		then do;	Speaker= "Tarullo";		 SP33= 1; 	end;	else SP33= 0;	*Daniel K. Tarullo, Fed;
+if find (Event,"Williams") 		then do;	Speaker= "Williams";	 SP34= 1; 	end;	else SP34= 0;	*John C. Williams, Fed;
+if find (Event,"Yellen") 		then do;	Speaker= "Yellen";		 SP35= 1; 	end;	else SP35= 0;	*Janet Yellen, Fed;
+
+/*the following speakers have less than 20 instances of speeches
+
+if find (Event,"Adams") 		then do;	Speaker= "Adams";		 SP36= 1;	end;	else SP36= 0; 	*Timothy D. Adams, Treasury;
+if find (Event,"Barr") 			then do;	Speaker= "Barr";		 SP37= 1;	end;	else SP37= 0; 	*Andy Barr, Congressman and Representative;
+if find (Event,"Bies") 			then do;	Speaker= "Bies";		 SP38= 1;	end;	else SP38= 0;	*Susan Bies, Fed;
+if find (Event,"Bowman") 		then do;	Speaker= "Bowman";		 SP39= 1;	end;	else SP39= 0;	*Michelle Bowman, Fed;
+if find (Event,"Barkin") 		then do;	Speaker= "Barkin";		 SP40= 1;	end;	else SP40= 0;	*Thomas Barkin, Fed;
+if find (Event,"Clarida") 		then do;	Speaker= "Clarida";		 SP41= 1;	end;	else SP41= 0;	*Richard Clarida, Fed VC;
+if find (Event,"Daly") 			then do;	Speaker= "Daly";		 SP42= 1; 	end;	else SP42= 0; 	*Mary C. Daly, Fed;
+if find (Event,"Goldstein") 	then do;	Speaker= "Goldstein";	 SP43= 1; 	end;	else SP43= 0;	*Jeffrey A. Goldstein, Treasury;
+if find (Event,"Holcomb") 		then do;	Speaker= "Holcomb";		 SP44= 1; 	end;	else SP44= 0;	*Helen Holcomb, Fed (interim);
+if find (Event,"Levey") 		then do;	Speaker= "Levey";		 SP45= 1;	end;	else SP45= 0;	*Stuart A. Levey, Treasury;
+if find (Event,"Lowery") 		then do;	Speaker= "Lowery";		 SP46= 1; 	end;	else SP46= 0;	*Clay Lowery, Treasury;
+if find (Event,"Lew") 			then do;	Speaker= "Lew";			 SP47= 1; 	end;	else SP47= 0;	*Jacob J. Lew, Treasury;
+if find (Event,"Moskow") 		then do;	Speaker= "Moskow";		 SP48= 1; 	end;	else SP48= 0;	*Michael H. Moskow, Fed;
+if find (Event,"Miller") 		then do;	Speaker= "Miller";		 SP49= 1; 	end;	else SP49= 0;	*Mary J. Miller, Treasury;
+if find (Event,"Mullinix") 		then do;	Speaker= "Mullinix";	 SP50= 1; 	end;	else SP50= 0;	*Mark. L. Mullinix, Fed;
+if find (Event,"Minehan") 		then do;	Speaker= "Minehan";		 SP51= 1; 	end;	else SP51= 0;	*Cathy Minehan, Fed;
+if find (Event,"Mnuchin") 		then do;	Speaker= "Mnuchin";		 SP52= 1; 	end;	else SP52= 0;	*Steven Mnuchin, Treasury;
+if find (Event,"Mandelker") 	then do;	Speaker= "Mandelker";	 SP53= 1; 	end;	else SP53= 0;	*Sigal Mandelker, Treasury;
+if find (Event,"Muzinich") 		then do;	Speaker= "Muzinich";	 SP54= 1; 	end;	else SP54= 0;	*Justin Muzinich, Treasury;
+if find (Event,"Malpass") 		then do;	Speaker= "Malpass";		 SP55= 1; 	end;	else SP55= 0;	*David Malpass, Treasury;
+if find (Event,"Poole") 		then do;	Speaker= "Poole";		 SP56= 1; 	end;	else SP56= 0;	*William Poole, Fed;
+if find (Event,"Quarles") 		then do;	Speaker= "Quarles";		 SP57= 1; 	end;	else SP57= 0;	*Randal Quarles, Fed;
+if find (Event,"Raskin") 		then do;	Speaker= "Raskin";		 SP58= 1; 	end;	else SP58= 0;	*Sarah Bloom Raskin, Fed;
+if find (Event,"Ryan") 			then do;	Speaker= "Ryan";		 SP59= 1; 	end;	else SP59= 0;	*Anthony Ryan, Treasury;
+if find (Event,"Solomon") 		then do;	Speaker= "Solomon";		 SP60= 1; 	end;	else SP60= 0;	*Eric Solomon, Treasury;
+if find (Event,"Swagel") 		then do;	Speaker= "Swagel";		 SP61= 1; 	end;	else SP61= 0;	*Phillip Swagel, Treasury;
+if find (Event,"Szubin") 		then do;	Speaker= "Szubin";		 SP62= 1; 	end;	else SP62= 0;	*Adam J. Szubin, Treasury;
+if find (Event,"Sheets") 		then do;	Speaker= "Sheets";		 SP63= 1; 	end;	else SP63= 0;	*D. Nathan Sheets, Treasury;
+if find (Event,"Tarbert") 		then do;	Speaker= "Tarbert";		 SP64= 1; 	end;	else SP64= 0;	*Heath Tarbert, Treasury;
+if find (Event,"Warsh") 		then do;	Speaker= "Warsh";		 SP65= 1; 	end;	else SP65= 0;	*Kevin Warsh, Fed;
+if find (Event,"Wolin") 		then do;	Speaker= "Wolin";		 SP66= 1; 	end;	else SP66= 0;	*Neal S. Wolin, Fed;
+*/
+run;
+
+data Speech;
+set Speech;
+
+if Speaker= ' ' then delete;
+run;
+
+proc export data= Speech dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Speech_Raw.csv" 
+replace;
+run;
+
+proc means data= Speech nway noprint;
+class Speaker;
+output out= Summary1;
+run;
+
+data Summary1;
+set Summary1;
+
+if _STAT_ ne 'MEAN' and _STAT_ ne 'STD';
+run;
+
+%macro speech_out (count);
+
+data %do i= 1 %to &count.; SP&i. %end;;
+set Speech;
+
+%do i= 1 %to &count.;
+
+if SP&i.= 1 then output SP&i.;
+%end;
+run;
+
+%do i= 1 %to &count.;
+
+data SP&i.;
+set SP&i.;
+
+keep Date Time SP&i.;
+run;
+
+%end;
+
+%do i= 1 %to &count.;
+
+proc sort data= SP&i.;
+by Date Time;
+run;
+
+%end;
+
+%mend speech_out;
+
+%speech_out (35);
+
+%macro merge_speech (count);
+
+data Speech;
+merge %do i= 1 %to &count.; SP&i. %end;;
+by Date Time;
+run;
+
+data Speech;
+set Speech;
+
+Interval= (int(Time)/300)+1;
+
+array SP{35} SP1-SP35;
+do i= 1 to 35;
+if SP{i}= . then SP{i}= 0; end;
+drop i;
+run;
+
+%mend merge_speech;
+
+%merge_speech (35);
+
+proc sort data= Speech nodupkey dupout= Dup;
+by Date Interval;
+run;
+
+proc means data= Speech nway noprint;
+var SP1-Sp35;
+output out= Summary2 (drop= _:) sum= /autoname;
+run;
+
+data Speech;
+set Speech;
+Total= sum (of SP:);
+run;
+
+data Speech;
+retain Date Time Interval;
+set Speech;
+run;
+
+proc export data= Speech dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Speech.csv" 
+replace;
+run;
+
+proc export data= Summary1 dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Summary1.csv" 
+replace;
+run;
+
+proc export data= Summary2 dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Summary2.csv" 
+replace;
+run;
