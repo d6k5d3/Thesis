@@ -1,0 +1,1248 @@
+
+options mprint;
+
+*=======================================================
+             Preparation of News Datasets
+========================================================;
+
+%macro upload (reg); *uploading from country specific output destination;
+
+data E_&reg.;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\E_&reg..csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Day 			$3.;
+informat Region 		$32.;
+informat Category 		$32.;
+informat Event 			$100.;
+informat Period 		$32.;
+informat Surv_Med 		best32.;
+informat Actual 		best32.;
+informat Surv_Avg 		best32.;
+informat Std_Dev_Surv 	best32.;
+informat Prior 			best32.;
+informat Revised 		best32.;
+informat Last_Rev 		best32.;
+informat Surp_Bloom 	best32.;
+informat S		 		best32.;
+informat Ticker 		$32.;
+informat Code			$5.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Day 				$3.;
+format Region 			$32.;
+format Category 		$32.;
+format Event 			$100.;
+format Period 			$32.;
+format Surv_Med 		best32.;
+format Actual 			best32.;
+format Surv_Avg 		best32.;
+format Std_Dev_Surv 	best32.;
+format Prior 			best32.;
+format Revised 			best32.;
+format Last_Rev 		best32.;
+format Surp_Bloom 		best32.;
+format S		 		best32.;
+format Ticker 			$32.;
+format Code				$5.;
+			
+input Date
+	  Time
+	  Day $
+      Region $
+      Category $
+      Event $
+      Period $
+      Surv_Med
+	  Actual
+      Surv_Avg
+      Std_Dev_Surv
+      Prior
+      Revised
+      Last_Rev
+      Surp_Bloom
+	  S
+	  Ticker $
+	  Code $;
+run;
+
+%mend upload;
+
+%upload (US);
+%upload (EU);
+%upload (GER);
+%upload (HUN);
+%upload (MEX);
+%upload (POL);
+%upload (SA);
+%upload (TUR);
+
+%macro split_news_vars (reg, count);
+
+data %do i= 1 %to &count.; &reg.&i. %end;;
+set E_&reg.;
+
+%do i= 1 %to &count.;
+
+if Code= "&reg.&i." then output &reg.&i.;
+
+%end;
+run;
+
+%mend split_news_vars;
+
+%split_news_vars (US, 31);
+%split_news_vars (EU, 19);
+%split_news_vars (GER, 13);
+%split_news_vars (HUN, 16);
+%split_news_vars (MEX, 16);
+%split_news_vars (POL, 15);
+%split_news_vars (SA, 11);
+%split_news_vars (TUR, 11);
+
+%macro filter_news_e (reg, count);
+
+%do i= 1 %to &count.;
+
+data &reg.&i.;
+set &reg.&i.;
+
+if Actual= 9999 or Surv_Med= 9999 then delete;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+Diff= Actual-Surv_Med;
+run;
+
+proc sql;
+create table E_&reg.&i. as
+select *, STD(Diff) as SD, Diff/STD(Diff) as Surp_&reg.&i. from &reg.&i.;
+quit;
+
+data E_&reg.&i.;
+set E_&reg.&i.;
+
+if Year ge 2010 and Year le 2017;
+keep Date Time Interval Surp_&reg.&i.;
+run;
+
+proc sort data= E_&reg.&i. nodupkey;
+by Date Interval;
+run;
+
+%end;
+
+%mend filter_news_e;
+
+%filter_news_e (US, 27);
+%filter_news_e (EU, 19);
+%filter_news_e (GER, 13);
+%filter_news_e (HUN, 13);
+%filter_news_e (MEX, 13);
+%filter_news_e (POL, 12);
+%filter_news_e (SA, 9);
+%filter_news_e (TUR, 9);
+
+%macro filter_news_c (reg, begin, end);
+
+%do i= &begin. %to &end.;
+
+%if &i.= 14 or &i.= 13 or &i.= 10 %then %do;
+
+data &reg.&i.;
+set &reg.&i.;
+
+if Actual= 9999 or Surv_Med= 9999 then delete;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+Diff= Actual-Surv_Med;
+run;
+
+proc sql;
+create table C_&reg.&i. as
+select *, STD(Diff) as SD, Diff/STD(Diff) as Surp_&reg.&i. from &reg.&i.;
+quit;
+
+data C_&reg.&i.;
+set C_&reg.&i.;
+
+if Year ge 2010 and Year le 2017;
+keep Date Time Interval Surp_&reg.&i.;
+run;
+
+proc sort data= C_&reg.&i. nodupkey;
+by Date Interval;
+run;
+
+%end;
+
+%else %if &i.= 28 or &i.= 29 %then %do;
+
+data &reg.&i.;
+set &reg.&i.;
+
+if Actual= 9999 or Surv_Med= 9999 then delete;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+Diff= Actual-Prior;
+run;
+
+proc sql;
+create table C_&reg.&i. as
+select *, STD(Diff) as SD, Diff/STD(Diff) as Surp_&reg.&i. from &reg.&i.;
+quit;
+
+data C_&reg.&i.;
+set C_&reg.&i.;
+
+if Year ge 2010 and Year le 2017;
+keep Date Time Interval Surp_&reg.&i.;
+run;
+
+proc sort data= C_&reg.&i. nodupkey;
+by Date Interval;
+run;
+
+%end;
+
+%else %do;
+
+data C_&reg.&i.;
+set &reg.&i.;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+PS_&reg.&i.= 1;
+run;
+
+data C_&reg.&i.;
+set C_&reg.&i.;
+
+if Year ge 2010 and Year le 2017;
+keep Date Time Interval PS_&reg.&i.;
+run;
+
+proc sort data= C_&reg.&i. nodupkey;
+by Date Interval;
+run;
+
+%end;
+
+%end;
+
+%mend filter_news_c;
+
+%filter_news_c (US, 28, 31);
+%filter_news_c (HUN, 14, 16);
+%filter_news_c (MEX, 14, 16);
+%filter_news_c (POL, 13, 15);
+%filter_news_c (SA, 10, 11);
+%filter_news_c (TUR, 10, 11);
+
+%macro speech (count);
+
+data Speech_Raw;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Speech_Raw.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Day 			$3.;
+informat Region 		$32.;
+informat Category 		$32.;
+informat Event 			$100.;
+informat Speaker 		$32.;
+
+%do i= 1 %to &count.;
+
+informat SP&i. 			best12.;
+
+%end;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Day 				$3.;
+format Region 			$32.;
+format Category 		$32.;
+format Event 			$100.;
+format Speaker 			$32.;
+
+%do i= 1 %to &count.;
+
+format SP&i. 			best12.;
+
+%end;
+
+input Date Time Day $ Region $ Category $ Event $ Speaker $ 
+	  %do i= 1 %to &count.;
+	  SP&i. %end;;
+
+run;
+
+%mend speech;
+
+%speech (35);
+
+%macro speech_out (count);
+
+data %do i= 1 %to &count.; SP&i. %end;;
+set Speech_Raw;
+
+%do i= 1 %to &count.;
+
+if SP&i.= 1 then output SP&i.;
+%end;
+run;
+
+%do i= 1 %to &count.;
+
+data SP&i.;
+set SP&i.;
+
+Year= year (Date);
+Interval= (int(Time)/300)+1;
+keep Date Time Interval SP&i.;
+
+if Year ge 2010 and Year le 2017;
+run;
+
+proc sort data= SP&i. nodupkey;
+by Date Interval;
+run;
+
+%end;
+
+%mend speech_out;
+
+%speech_out (35);
+
+*=======================================================
+                   Uploading Jumps
+========================================================;
+
+%macro upload_jumps (cur);
+
+data &cur._Jump_1;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\1-Jump\1-Contempo. and Lag-Lead Effect\Data\&cur._Jump_1.csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat Weekday 		best32.;
+informat FJ_Dummy 		best32.;
+informat Jump 			best32.;
+informat Abs_Jump 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format Weekday 			best12.;
+format FJ_Dummy 		best12.;
+format Jump 			best12.;
+format Abs_Jump 		best12.;
+
+input Date
+	  Time
+	  Interval
+	  Weekday
+	  FJ_Dummy
+	  Jump
+	  Abs_Jump;
+
+run;
+
+proc sort data= &cur._Jump_1;
+by Date Interval;
+run;
+
+data &cur._Jump_1;
+set &cur._Jump_1;
+
+keep Date Time Interval Jump Abs_Jump;
+run;
+
+%mend upload_jumps;
+
+%upload_jumps (HUF);
+%upload_jumps (MXN);
+%upload_jumps (PLN);
+%upload_jumps (ZAR);
+%upload_jumps (TRY);
+
+*=======================================================
+                 Merging Jumps and News
+========================================================;
+
+%macro jump_news_merge_e (cur, reg, count); *matching economic fundamentals news with jumps;
+
+%do i= 1 %to &count.;
+
+data J1&cur._E_&reg.&i.;
+merge &cur._Jump_1 E_&reg.&i.;
+by Date Interval;
+run;
+
+proc sort data= J1&cur._E_&reg.&i.;
+by Date Interval;
+run;
+
+data mn_&cur._E_&reg.&i.;
+set J1&cur._E_&reg.&i.;
+
+length News $5.;
+rename Surp_&reg.&i.= Surprise;
+Currency= "&cur.";
+News= "&reg.&i.";
+ 
+if Surp_&reg.&i. ne . and Jump ne .;
+run;
+
+data J1&cur._E_&reg.&i.;
+set J1&cur._E_&reg.&i.;
+
+if Jump= . 			then Jump= 0;
+if Surp_&reg.&i.= . then delete;
+run;
+
+%end;
+
+%mend jump_news_merge_e;
+
+%jump_news_merge_e (HUF, US, 27);
+%jump_news_merge_e (MXN, US, 27);
+%jump_news_merge_e (PLN, US, 27);
+%jump_news_merge_e (ZAR, US, 27);
+%jump_news_merge_e (TRY, US, 27);
+%jump_news_merge_e (HUF, EU, 19);
+%jump_news_merge_e (MXN, EU, 19);
+%jump_news_merge_e (PLN, EU, 19);
+%jump_news_merge_e (ZAR, EU, 19);
+%jump_news_merge_e (TRY, EU, 19);
+%jump_news_merge_e (HUF, GER, 13);
+%jump_news_merge_e (MXN, GER, 13);
+%jump_news_merge_e (PLN, GER, 13);
+%jump_news_merge_e (ZAR, GER, 13);
+%jump_news_merge_e (TRY, GER, 13);
+%jump_news_merge_e (HUF, HUN, 13);
+%jump_news_merge_e (MXN, MEX, 13);
+%jump_news_merge_e (PLN, POL, 12);
+%jump_news_merge_e (ZAR, SA, 9);
+%jump_news_merge_e (TRY, TUR, 9);
+
+%macro jump_news_merge_c (cur, reg, begin, end); *matching central bank news with jumps;
+
+%do i= &begin. %to &end.;
+
+%if &i.= 29 or &i.= 28 or &i.= 14 or &i.= 13 or &i.= 10 %then %do;
+
+data J1&cur._C_&reg.&i.;
+merge &cur._Jump_1 C_&reg.&i.;
+by Date Interval;
+run;
+
+proc sort data= J1&cur._C_&reg.&i.;
+by Date Interval;
+run;
+
+data mn_&cur._C_&reg.&i.;
+set J1&cur._C_&reg.&i.;
+
+length News $5.;
+rename Surp_&reg.&i.= Surprise;
+Currency= "&cur.";
+News= "&reg.&i.";
+
+if Surp_&reg.&i. ne . and Jump ne .;
+run;
+
+data J1&cur._C_&reg.&i.;
+set J1&cur._C_&reg.&i.;
+
+if Jump= . 			then Jump= 0;
+if Surp_&reg.&i.= . then delete;
+run;
+
+%end;
+
+%else %do;
+
+data J1&cur._C_&reg.&i.;
+merge &cur._Jump_1 C_&reg.&i.;
+by Date Interval;
+run;
+
+proc sort data= J1&cur._C_&reg.&i.;
+by Date Interval;
+run;
+
+data mn_&cur._C_&reg.&i.;
+set J1&cur._C_&reg.&i.;
+
+length News $5.;
+rename PS_&reg.&i.= Surprise;
+Currency= "&cur.";
+News= "&reg.&i.";
+
+if PS_&reg.&i. ne . and Jump ne .;
+run;
+
+data J1&cur._C_&reg.&i.;
+set J1&cur._C_&reg.&i.;
+
+if Jump= . 			then Jump= 0;
+if PS_&reg.&i.= . 	then delete;
+run;
+
+%end;
+
+%end;
+
+%mend jump_news_merge_c;
+
+%jump_news_merge_c (HUF, US, 28, 31);
+%jump_news_merge_c (MXN, US, 28, 31);
+%jump_news_merge_c (PLN, US, 28, 31);
+%jump_news_merge_c (ZAR, US, 28, 31);
+%jump_news_merge_c (TRY, US, 28, 31);
+%jump_news_merge_c (HUF, HUN, 14, 16);
+%jump_news_merge_c (MXN, MEX, 14, 16);
+%jump_news_merge_c (PLN, POL, 13, 15);
+%jump_news_merge_c (ZAR, SA, 10, 11);
+%jump_news_merge_c (TRY, TUR, 10, 11);
+
+%macro jump_speech_merge (cur, count); *matching speech with jumps;
+
+%do i= 1 %to &count.;
+
+data J1&cur._SP&i.;
+merge &cur._Jump_1 SP&i.;
+by Date Interval;
+run;
+
+proc sort data= J1&cur._SP&i.;
+by Date Interval;
+run;
+
+data mn_&cur._SP&i.;
+set J1&cur._SP&i.;
+
+length News $5.;
+rename SP&i.= Surprise;
+Currency= "&cur.";
+News= "SP&i.";
+
+if SP&i. ne . and Jump ne .;
+run;
+
+data J1&cur._SP&i.;
+set J1&cur._SP&i.;
+
+if Jump= . 	then Jump= 0;
+if SP&i.= . then delete;
+run;
+
+%end;
+
+%mend jump_speech_merge;
+
+%jump_speech_merge (HUF, 35);
+%jump_speech_merge (MXN, 35);
+%jump_speech_merge (PLN, 35);
+%jump_speech_merge (ZAR, 35);
+%jump_speech_merge (TRY, 35);
+
+*=======================================================
+                      Regression
+========================================================;
+
+%macro regression_e (cur, reg, count); *with economic fundamentals news;
+
+%do i= 1 %to &count.;
+
+proc reg data= J1&cur._E_&reg.&i. rsquare adjrsq tableout outest= A1&cur._E_&reg.&i. noprint;
+model Jump= Surp_&reg.&i.;
+quit;
+
+%end;
+
+%mend regression_e;
+
+%regression_e (HUF, US, 27);
+%regression_e (MXN, US, 27);
+%regression_e (PLN, US, 27);
+%regression_e (ZAR, US, 27);
+%regression_e (TRY, US, 27);
+%regression_e (HUF, EU, 19);
+%regression_e (MXN, EU, 19);
+%regression_e (PLN, EU, 19);
+%regression_e (ZAR, EU, 19);
+%regression_e (TRY, EU, 19);
+%regression_e (HUF, GER, 13);
+%regression_e (MXN, GER, 13);
+%regression_e (PLN, GER, 13);
+%regression_e (ZAR, GER, 13);
+%regression_e (TRY, GER, 13);
+%regression_e (HUF, HUN, 13);
+%regression_e (MXN, MEX, 13);
+%regression_e (PLN, POL, 12);
+%regression_e (ZAR, SA, 9);
+%regression_e (TRY, TUR, 9);
+
+%macro regression_c (cur, reg, begin, end); *with central bank news;
+
+%do i= &begin. %to &end.;
+
+%if &i.= 29 or &i.= 28 or &i.= 14 or &i.= 13 or &i.= 10 %then %do;
+
+proc reg data= J1&cur._C_&reg.&i. rsquare adjrsq tableout outest= A1&cur._C_&reg.&i. noprint;
+model Jump= Surp_&reg.&i.;
+quit;
+
+%end;
+
+%else %do;
+
+proc reg data= J1&cur._C_&reg.&i. rsquare adjrsq tableout outest= A1&cur._C_&reg.&i. noprint;
+model Jump= PS_&reg.&i.;
+quit;
+
+%end;
+
+%end;
+
+%mend regression_c;
+
+%regression_c (HUF, US, 28, 31);
+%regression_c (MXN, US, 28, 31);
+%regression_c (PLN, US, 28, 31);
+%regression_c (ZAR, US, 28, 31);
+%regression_c (TRY, US, 28, 31);
+%regression_c (HUF, HUN, 14, 16);
+%regression_c (MXN, MEX, 14, 16);
+%regression_c (PLN, POL, 13, 15);
+%regression_c (ZAR, SA, 10, 11);
+%regression_c (TRY, TUR, 10, 11);
+
+%macro regression_speech (cur, count); *with speech;
+
+%do i= 1 %to &count.;
+
+proc reg data= J1&cur._SP&i. rsquare adjrsq tableout outest= A1&cur._SP&i. noprint;
+model Jump= SP&i.;
+quit;
+
+%end;
+
+%mend regression_speech;
+
+%regression_speech (HUF, 35);
+%regression_speech (MXN, 35);
+%regression_speech (PLN, 35);
+%regression_speech (ZAR, 35);
+%regression_speech (TRY, 35);
+
+*=======================================================
+                 Combine Results
+========================================================;
+
+%macro combine_e1 (cur, reg, count); *results of economic news;
+
+%do i= 1 %to &count.;
+
+data R1&cur._E_&reg.&i.;
+set A1&cur._E_&reg.&i.;
+
+length News $5.;
+rename Surp_&reg.&i.= Surprise;
+Currency= "&cur.";
+News= "&reg.&i.";
+keep _TYPE_ _DEPVAR_ Intercept Surp_&reg.&i. Jump _RSQ_ _ADJRSQ_ Currency News;
+run;
+
+%end;
+
+data Res1_&cur._&reg._e;
+set %do i=	1 %to &count.;
+R1&cur._E_&reg.&i. %end;;
+run;
+
+data mn_&cur._&reg._e;
+set %do i=	1 %to &count.;
+mn_&cur._E_&reg.&i.%end;;
+run;
+
+%mend combine_e1;
+
+%combine_e1 (HUF, US, 27);
+%combine_e1 (MXN, US, 27);
+%combine_e1 (PLN, US, 27);
+%combine_e1 (ZAR, US, 27);
+%combine_e1 (TRY, US, 27);
+%combine_e1 (HUF, EU, 19);
+%combine_e1 (MXN, EU, 19);
+%combine_e1 (PLN, EU, 19);
+%combine_e1 (ZAR, EU, 19);
+%combine_e1 (TRY, EU, 19);
+%combine_e1 (HUF, GER, 13);
+%combine_e1 (MXN, GER, 13);
+%combine_e1 (PLN, GER, 13);
+%combine_e1 (ZAR, GER, 13);
+%combine_e1 (TRY, GER, 13);
+%combine_e1 (HUF, HUN, 13);
+%combine_e1 (MXN, MEX, 13);
+%combine_e1 (PLN, POL, 12);
+%combine_e1 (ZAR, SA, 9);
+%combine_e1 (TRY, TUR, 9);
+
+%macro combine_e2 (cur, reg); *combining results from all regions;
+
+data Results1_&cur._e;
+set Res1_&cur._US_e Res1_&cur._EU_e Res1_&cur._GER_e Res1_&cur._&reg._e;
+run;
+
+data mn_&cur._e;
+set mn_&cur._US_e mn_&cur._EU_e mn_&cur._GER_e mn_&cur._&reg._e;
+run;
+
+%mend combine_e2;
+
+%combine_e2 (HUF, HUN);
+%combine_e2 (MXN, MEX);
+%combine_e2 (PLN, POL);
+%combine_e2 (ZAR, SA);
+%combine_e2 (TRY, TUR);
+
+data Results1_e; *comprehensive result for economic news;
+set Results1_HUF_e Results1_MXN_e Results1_PLN_e Results1_ZAR_e Results1_TRY_e;
+run;
+
+data Matched_News_e; *comprehensive result for economic news;
+set mn_HUF_e mn_MXN_e mn_PLN_e mn_ZAR_e mn_TRY_e;
+run;
+
+%macro combine_c1 (cur, reg, begin, end); *results of central bank news;
+
+%do i= &begin. %to &end.;
+
+%if &i.= 29 or &i.= 28 or &i.= 14 or &i.= 13 or &i.= 10 %then %do;
+
+data R1&cur._C_&reg.&i.;
+set A1&cur._C_&reg.&i.;
+
+length News $5.;
+rename Surp_&reg.&i.= Surprise;
+Currency= "&cur.";
+News= "&reg.&i.";
+keep _TYPE_ _DEPVAR_ Intercept Surp_&reg.&i. Jump _RSQ_ _ADJRSQ_ Currency News;
+run;
+
+%end;
+
+%else %do;
+
+data R1&cur._C_&reg.&i.;
+set A1&cur._C_&reg.&i.;
+
+length News $5.;
+rename PS_&reg.&i.= Surprise;
+Currency= "&cur.";
+News= "&reg.&i.";
+keep _TYPE_ _DEPVAR_ Intercept PS_&reg.&i. Jump _RSQ_ _ADJRSQ_ Currency News;
+run;
+
+%end;
+
+%end;
+
+data Res1_&cur._&reg._c;
+set %do i=	&begin. %to &end.;
+R1&cur._C_&reg.&i. %end;;
+run;
+
+data mn_&cur._&reg._c;
+set %do i=	&begin. %to &end.;
+mn_&cur._C_&reg.&i.%end;;
+run;
+
+%mend combine_c1;
+
+%combine_c1 (HUF, US, 28, 31);
+%combine_c1 (MXN, US, 28, 31);
+%combine_c1 (PLN, US, 28, 31);
+%combine_c1 (ZAR, US, 28, 31);
+%combine_c1 (TRY, US, 28, 31);
+%combine_c1 (HUF, HUN, 14, 16);
+%combine_c1 (MXN, MEX, 14, 16);
+%combine_c1 (PLN, POL, 13, 15);
+%combine_c1 (ZAR, SA, 10, 11);
+%combine_c1 (TRY, TUR, 10, 11);
+
+%macro combine_c2 (cur, reg); *results from US and respective regions;
+
+data Results1_&cur._c;
+set Res1_&cur._US_c Res1_&cur._&reg._c;
+run;
+
+data mn_&cur._c;
+set mn_&cur._US_c mn_&cur._&reg._c;
+run;
+
+%mend combine_c2;
+
+%combine_c2 (HUF, HUN);
+%combine_c2 (MXN, MEX);
+%combine_c2 (PLN, POL);
+%combine_c2 (ZAR, SA);
+%combine_c2 (TRY, TUR);
+
+data Results1_c; *all central bank news results;
+set Results1_HUF_c Results1_MXN_c Results1_PLN_c Results1_ZAR_c Results1_TRY_c;
+run;
+
+data Matched_News_c; *comprehensive result for economic news;
+set mn_HUF_c mn_MXN_c mn_PLN_c mn_ZAR_c mn_TRY_c;
+run;
+
+%macro combine_s1 (cur, count); *results from speech;
+
+%do i= 1 %to &count.;
+
+data R1&cur._SP&i.;
+set A1&cur._SP&i.;
+
+length News $5.;
+rename SP&i.= Surprise;
+Currency= "&cur.";
+News= "SP&i.";
+keep _TYPE_ _DEPVAR_ Intercept SP&i. Jump _RSQ_ _ADJRSQ_ Currency News;
+run;
+
+%end;
+
+data Res1_&cur._s;
+set %do i=	1 %to &count.;
+R1&cur._SP&i. %end;;
+run;
+
+data mn_&cur._s;
+set %do i=	1 %to &count.;
+mn_&cur._SP&i. %end;;
+run;
+
+%mend combine_s1;
+
+%combine_s1 (HUF, 35);
+%combine_s1 (MXN, 35);
+%combine_s1 (PLN, 35);
+%combine_s1 (ZAR, 35);
+%combine_s1 (TRY, 35);
+
+data Results1_s; *combining all results from speech;
+set Res1_HUF_s Res1_MXN_s Res1_PLN_s Res1_ZAR_s Res1_TRY_s;
+run;
+
+data Matched_News_s; *comprehensive result for economic news;
+set mn_HUF_s mn_MXN_s mn_PLN_s mn_ZAR_s mn_TRY_s;
+run;
+
+data Results1; *combining economic, central bank and speech news;
+set Results1_e Results1_c Results1_s;
+
+if _TYPE_= "PARMS" or _TYPE_= "PVALUE";
+if Surprise= . then delete;
+run;
+
+data Matched_Results; *combining economic, central bank and speech news;
+set Matched_News_e Matched_News_c Matched_News_s;
+run;
+
+proc sort data= Matched_Results;
+by Date Interval;
+run;
+
+proc export data= Results1 dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\1-Jump\1-Contempo. and Lag-Lead Effect\Output\Results1_d.csv" 
+replace;
+run;
+
+proc export data= Matched_Results dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\1-Jump\1-Contempo. and Lag-Lead Effect\Output\Matched_Results_d.csv" 
+replace;
+run;
+
+*=======================================================
+           Regression following Chatrath et al.
+========================================================;
+
+proc import datafile="C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\1-Jump\1-Contempo. and Lag-Lead Effect\Output\Matched_Results_d.csv"
+dbms= csv replace out= Matched_Results;
+getnames=yes;
+guessingrows= max;
+run;
+
+proc sort data= Matched_Results;
+by Date Interval;
+run;
+
+%macro extract_jump_news_match (cur);
+
+data J&cur._news;
+set Matched_Results;
+
+if Currency= "&cur." then output J&cur._news;
+run;
+
+%mend extract_jump_news_match;
+
+%extract_jump_news_match (HUF);
+%extract_jump_news_match (MXN);
+%extract_jump_news_match (PLN);
+%extract_jump_news_match (ZAR);
+%extract_jump_news_match (TRY);
+
+%macro extract_jump_only (cur);
+
+data Jump_&cur.;
+set J&cur._News;
+
+keep date Time Interval Jump;
+run;
+
+proc sort data= Jump_&cur. nodupkey;
+by Date Interval;
+run;
+
+%mend extract_jump_only;
+
+%extract_jump_only (HUF);
+%extract_jump_only (MXN);
+%extract_jump_only (PLN);
+%extract_jump_only (ZAR);
+%extract_jump_only (TRY);
+
+%macro extract_news_only (reg, cur, count);
+
+data %do i= 1 %to &count.; &cur._&reg.&i. %end;;
+set J&cur._News;
+
+%do i= 1 %to &count.;
+
+if News= "&reg.&i" then output &cur._&reg.&i;
+
+%end;
+run;
+
+%do i= 1 %to &count.;
+
+data &cur._&reg.&i;
+set &cur._&reg.&i;
+
+rename Surprise= &reg.&i.;
+keep Date Time Interval Surprise;
+run;
+
+proc sort data= &cur._&reg.&i.;
+by Date Interval;
+run;
+%end;
+
+%mend extract_news_only;
+
+%extract_news_only (US, HUF, 31);
+%extract_news_only (US, MXN, 31);
+%extract_news_only (US, PLN, 31);
+%extract_news_only (US, ZAR, 31);
+%extract_news_only (US, TRY, 31);
+
+%extract_news_only (EU, HUF, 19);
+%extract_news_only (EU, MXN, 19);
+%extract_news_only (EU, PLN, 19);
+%extract_news_only (EU, ZAR, 19);
+%extract_news_only (EU, TRY, 19);
+
+%extract_news_only (GER, HUF, 13);
+%extract_news_only (GER, MXN, 13);
+%extract_news_only (GER, PLN, 13);
+%extract_news_only (GER, ZAR, 13);
+%extract_news_only (GER, TRY, 13);
+
+%extract_news_only (HUN, HUF, 16);
+%extract_news_only (MEX, MXN, 16);
+%extract_news_only (POL, PLN, 15);
+%extract_news_only (SA, ZAR, 11);
+%extract_news_only (TUR, TRY, 11);
+
+%macro extract_speech_only (cur, count);
+
+data %do i= 1 %to &count.; &cur._SP&i. %end;;
+set J&cur._News;
+
+%do i= 1 %to &count.;
+
+if News= "SP&i" then output &cur._SP&i;
+
+%end;
+run;
+
+%do i= 1 %to &count.;
+
+data &cur._SP&i;
+set &cur._SP&i;
+
+rename Surprise= SP&i.;
+keep Date Time Interval Surprise;
+run;
+
+proc sort data= &cur._SP&i.;
+by Date Interval;
+run;
+%end;
+
+%mend extract_speech_only;
+
+
+%extract_speech_only (HUF, 35);
+%extract_speech_only (MXN, 35);
+%extract_speech_only (PLN, 35);
+%extract_speech_only (ZAR, 35);
+%extract_speech_only (TRY, 35);
+
+data HUF_News;
+merge Jump_HUF HUF_EU2 HUF_EU3 HUF_EU4 HUF_EU5 HUF_GER11 HUF_GER6 HUF_GER7 HUF_HUN14 
+      HUF_HUN16 HUF_SP35 HUF_US21 HUF_US22 HUF_US25 HUF_US28 HUF_US30 HUF_US9;
+by Date Interval;
+run;
+
+data HUF_News;
+set HUF_News;
+
+if EU2= . 	then EU2= 0;
+if EU3= . 	then EU3= 0;
+if EU4= . 	then EU4= 0;
+if EU5= . 	then EU5= 0;
+if GER11= . then GER11= 0;
+if GER6= . 	then GER6= 0;
+if GER7= . 	then GER7= 0;
+if HUN14= . then HUN14= 0;
+if HUN16= . then HUN16= 0;
+if SP35= . 	then SP35= 0;
+if US21= . 	then US21= 0;
+if US22= . 	then US22= 0;
+if US25= . 	then US25= 0;
+if US28= . 	then US28= 0;
+if US30= . 	then US30= 0;
+if US9= . 	then US9= 0;
+run;
+
+proc reg data= HUF_News rsquare adjrsq tableout outest= R_HUF_News noprint;
+model Jump= EU2	EU3	EU4	EU5	GER11 GER6 GER7 HUN14 HUN16 SP35 US21 US22 US25 US28 US30 US9;
+quit;
+
+data MXN_News;
+merge Jump_MXN MXN_EU1 MXN_GER12 MXN_MEX10 MXN_MEX14 MXN_MEX16 MXN_MEX5 MXN_MEX6
+      MXN_MEX8 MXN_SP16 MXN_SP21 MXN_SP23 MXN_SP4 MXN_US11 MXN_US16 MXN_US20 MXN_US22
+      MXN_US28 MXN_US30 MXN_US4 MXN_US7 MXN_US8 MXN_US9;
+by Date Interval;
+run;
+
+data MXN_News;
+set MXN_News;
+
+if EU1= . 	then EU1= 0;
+if GER12= . then GER12= 0;
+if MEX10= . then MEX10= 0;
+if MEX14= . then MEX14= 0;
+if MEX16= . then MEX16= 0;
+if MEX5= . 	then MEX5= 0;
+if MEX6= . 	then MEX6= 0;
+if MEX8= . 	then MEX8= 0;
+if SP16= . 	then SP16= 0;
+if SP21= . 	then SP21= 0;
+if SP23= . 	then SP23= 0;
+if SP4= . 	then SP4= 0;
+if US11= . 	then US11= 0;
+if US16= . 	then US16= 0;
+if US20= . 	then US20= 0;
+if US22= . 	then US22= 0;
+if US28= . 	then US28= 0;
+if US30= . 	then US30= 0;
+if US4= . 	then US4= 0;
+if US7= . 	then US7= 0;
+if US8= . 	then US8= 0;
+if US9= . 	then US9= 0;
+run;
+
+proc reg data= MXN_News rsquare adjrsq tableout outest= R_MXN_News noprint;
+model Jump= EU1	GER12 MEX10 MEX14 MEX16 MEX5 MEX6 MEX8 SP16 SP21 SP23 SP4 
+	  US11 US16 US20 US22 US28 US30 US4	US7	US8	US9;
+quit;
+
+data PLN_News;
+merge Jump_PLN PLN_EU14	PLN_EU8	PLN_GER12 PLN_GER6 PLN_GER7 PLN_POL1 PLN_POL10 PLN_POL11 
+	  PLN_POL13 PLN_POL2 PLN_POL3 PLN_POL5 PLN_POL6 PLN_POL7 PLN_SP2 PLN_SP33 PLN_SP35 PLN_SP7
+      PLN_US20 PLN_US21 PLN_US22 PLN_US25 PLN_US28 PLN_US30 PLN_US4 PLN_US5 PLN_US8 PLN_US9;
+by Date Interval;
+run;
+
+data PLN_News;
+set PLN_News;
+
+if EU14= . 	then EU14= 0;
+if EU8= . 	then EU8= 0;
+if GER12= . then GER12= 0;
+if GER6= . 	then GER6= 0;
+if GER7= . 	then GER7= 0;
+if POL1= . 	then POL1= 0;
+if POL10= . then POL10= 0;
+if POL11= . then POL11= 0;
+if POL13= . then POL13= 0;
+if POL2= . 	then POL2= 0;
+if POL3= . 	then POL3= 0;
+if POL5= . 	then POL5= 0;
+if POL6= . 	then POL6= 0;
+if POL7= . 	then POL7= 0;
+if SP2= . 	then SP2= 0;
+if SP33= . 	then SP33= 0;
+if SP35= . 	then SP35= 0;
+if SP7= . 	then SP7= 0;
+if US20= . 	then US20= 0;
+if US21= . 	then US21= 0;
+if US22= . 	then US22= 0;
+if US25= . 	then US25= 0;
+if US28= . 	then US28= 0;
+if US30= . 	then US30= 0;
+if US4= . 	then US4= 0;
+if US5= . 	then US5= 0;
+if US8= . 	then US8= 0;
+if US9= . 	then US9= 0;
+run;
+
+proc reg data= PLN_News rsquare adjrsq tableout outest= R_PLN_News noprint;
+model Jump= EU14 EU8 GER12 GER6 GER7 POL1 POL10 POL11  POL13 POL2 POL3 POL5
+	  POL6 POL7 SP2 SP33 SP35 SP7 US20 US21 US22 US25 US28 US30 US4 US5 US8 US9;
+quit;
+
+data ZAR_News;
+merge Jump_ZAR ZAR_EU15	ZAR_GER11 ZAR_SA11 ZAR_SA8 ZAR_SP1 ZAR_SP13	ZAR_SP3	ZAR_SP34 ZAR_US11 
+      ZAR_US16 ZAR_US17	ZAR_US20 ZAR_US21 ZAR_US22 ZAR_US24	ZAR_US28 ZAR_US30 ZAR_US4 ZAR_US8 ZAR_US9;
+by Date Interval;
+run;
+
+data ZAR_News;
+set ZAR_News;
+
+if EU15= . 	then EU15= 0;
+if GER11= . then GER11= 0;
+if SA11= . 	then SA11= 0;
+if SA8= . 	then SA8= 0;
+if SP1= . 	then SP1= 0;
+if SP13= . 	then SP13= 0;
+if SP3= . 	then SP3= 0;
+if SP34= . 	then SP34= 0;
+if US11= . 	then US11= 0;
+if US16= . 	then US16= 0;
+if US17= . 	then US17= 0;
+if US20= . 	then US20= 0;
+if US21= . 	then US21= 0;
+if US22= . 	then US22= 0;
+if US24= . 	then US24= 0;
+if US28= . 	then US28= 0;
+if US30= . 	then US30= 0;
+if US4= . 	then US4= 0;
+if US8= . 	then US8= 0;
+if US9= . 	then US9= 0;
+run;
+
+proc reg data= ZAR_News rsquare adjrsq tableout outest= R_ZAR_News noprint;
+model Jump= EU15 GER11 SA11 SA8 SP1 SP13 SP3 SP34 US11 US16 US17 US20 US21 US22
+      US24 US28 US30 US4 US8 US9;
+quit;
+
+data TRY_News;
+merge Jump_TRY TRY_EU1 TRY_GER4	TRY_SP20 TRY_SP21 TRY_SP26 TRY_SP35 TRY_SP7	TRY_TUR10 TRY_TUR11
+      TRY_TUR5 TRY_TUR7	TRY_US11 TRY_US12 TRY_US20 TRY_US22	TRY_US28 TRY_US30 TRY_US4 TRY_US7 TRY_US8 TRY_US9;
+by Date Interval;
+run;
+
+data TRY_News;
+set TRY_News;
+
+if EU1= . 	then EU1= 0;
+if GER4= . 	then GER4= 0;
+if SP20= . 	then SP20= 0;
+if SP21= . 	then SP21= 0;
+if SP26= . 	then SP26= 0;
+if SP35= . 	then SP35= 0;
+if SP7= . 	then SP7= 0;
+if TUR10= . then TUR10= 0;
+if TUR11= . then TUR11= 0;
+if TUR5= . 	then TUR5= 0;
+if TUR7= . 	then TUR7= 0;
+if US11= . 	then US11= 0;
+if US12= . 	then US12= 0;
+if US20= . 	then US20= 0;
+if US22= . 	then US22= 0;
+if US28= . 	then US28= 0;
+if US30= . 	then US30= 0;
+if US4= . 	then US4= 0;
+if US7= . 	then US7= 0;
+if US8= . 	then US8= 0;
+if US9= . 	then US9= 0;
+run;
+
+proc reg data= TRY_News rsquare adjrsq tableout outest= R_TRY_News noprint;
+model Jump= EU1 GER4 SP20 SP21 SP26 SP35 SP7 TUR10 TUR11 TUR5 TUR7 US11 US12 US20 US22
+            US28 US30 US4 US7 US8 US9;
+quit;
+
+*====================================================
+             Descriptive Jump Statistics
+=====================================================;
+
+%macro descriptive_stat (cur, obs, days);
+
+proc sql;
+
+create table &cur._Stat as
+
+select count (Jump) as jumps, 
+	   count (unique (Date)) as jump_days,
+       count (unique (Date))*100/&days. as jumpday_prob, 
+       count (Jump)/count (unique (Date)) as avg_jump_per_day,
+       STD (Abs_Jump) as SD_Jumpsize, 
+       mean (Abs_Jump) as Avg_Jumpsize, 
+       count (Jump)*100/&obs. as jump_prob,
+       sum (Jump>0) as pos_jump, 
+       sum (Jump<0) as neg_jump, 
+       sum (Jump>0)*100/&obs. as pos_jump_prob,
+       sum (Jump<0)*100/&obs. as neg_jump_prob, 
+       sum (Jump>0)*100/count (Jump) as pos_jump_per,
+       sum (Jump<0)*100/count (Jump) as neg_jump_per 
+       from &cur._Jump_1;
+quit;
+
+%mend descriptive_stat;
+
+%descriptive_stat (HUF, 302064, 1121);
+%descriptive_stat (MXN, 533448, 1983);
+%descriptive_stat (PLN, 536808, 1995);
+%descriptive_stat (ZAR, 537276, 1996);
+%descriptive_stat (TRY, 518584, 1932);
+
+data Jump_Stat;
+set HUF_Stat MXN_Stat PLN_Stat ZAR_Stat TRY_Stat;
+run;
+
+proc export data= Jump_Stat dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\1-Jump\1-Contempo. and Lag-Lead Effect\Output\Jump_Stat.csv" 
+replace;
+run;
