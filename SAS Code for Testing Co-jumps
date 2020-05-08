@@ -1,0 +1,1634 @@
+
+options mprint;
+
+%macro uploading_currency (reg, cur);
+
+data &cur.;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\1-Quotes_&reg.\Output\&cur..csv"
+delimiter= ',' missover dsd lrecl=32767 firstobs=2;
+
+informat Date 				mmddyy10.;
+informat Time 			 	time20.;
+informat Interval 			best32.;
+informat Day 				$3.;
+informat Year 				best32.;
+informat Ask_Close 			best32.;
+informat Bid_Close 			best32.;
+informat Price 				best32.;
+informat Return 		 	best32.;
+informat Volatility 		best32.;
+informat Volatility_YAvg 	best32.;
+informat Volatility_DAvg 	best32.;
+informat Volatility_SAvg 	best32.;
+informat Return_S			best32.;
+informat Volatility_Mon_Avg best32.;
+informat Volatility_Tue_Avg best32.;
+informat Volatility_Wed_Avg best32.;
+informat Volatility_Thu_Avg best32.;
+informat Volatility_Fri_Avg best32.;
+
+format Date 				mmddyy10.;
+format Time 				time20.;
+format Interval 			best12.;
+format Day 					$3.;
+format Year 				best12.;
+format Ask_Close 			best12.;
+format Bid_Close 			best12.;
+format Price 				best12.;
+format Return 				best12.;
+format Volatility 			best12.;
+format Volatility_YAvg 		best12.;
+format Volatility_DAvg 		best12.;
+format Volatility_SAvg 		best12.;
+format Return_S				best12.;
+format Volatility_Mon_Avg 	best12.;
+format Volatility_Tue_Avg 	best12.;
+format Volatility_Wed_Avg 	best12.;
+format Volatility_Thu_Avg 	best12.;
+format Volatility_Fri_Avg 	best12.;
+
+input Date
+      Time
+      Interval
+      Day  $
+      Year
+      Ask_Close
+      Bid_Close
+      Price
+      Return
+      Volatility
+      Volatility_YAvg
+	  Volatility_DAvg
+      Volatility_SAvg
+	  Return_S
+	  Volatility_Mon_Avg
+	  Volatility_Tue_Avg
+	  Volatility_Wed_Avg
+	  Volatility_Thu_Avg
+	  Volatility_Fri_Avg;
+run;
+
+data &cur.;
+set &cur.;
+
+rename Return= &cur._Ret;
+if Year ge 2010 and Year le 2017;
+
+if Day= "Mon" then DW_Mon= 1; else DW_Mon= 0;
+if Day= "Tue" then DW_Tue= 1; else DW_Tue= 0;
+if Day= "Wed" then DW_Wed= 1; else DW_Wed= 0;
+if Day= "Thu" then DW_Thu= 1; else DW_Thu= 0;
+
+num= Interval;
+nobs= 288;
+
+p= 1;
+Sin1= sin( 2 * p * constant("pi")*num/nobs);
+Cos1= cos( 2 * p * constant("pi")*num/nobs);
+p= 2;
+Sin2= sin( 2 * p * constant("pi")*num/nobs);
+Cos2= cos( 2 * p * constant("pi")*num/nobs);
+p= 3;
+Sin3= sin( 2 * p * constant("pi")*num/nobs);
+Cos3= cos( 2 * p * constant("pi")*num/nobs);
+p= 4;
+Sin4= sin( 2 * p * constant("pi")*num/nobs);
+Cos4= cos( 2 * p * constant("pi")*num/nobs);
+
+keep Date Time Interval Return DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+%mend uploading_currency;
+
+%uploading_currency (HUN, HUF);
+%uploading_currency (MEX, MXN);
+%uploading_currency (POL, PLN);
+%uploading_currency (SA, ZAR);
+%uploading_currency (TUR, TRY);
+
+%macro upload_jumps (cur);
+
+data &cur._Jump_1;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\1-Jump\1-Contempo. and Lag-Lead Effect\Data\&cur._Jump_1.csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat Weekday 		best32.;
+informat FJ_Dummy 		best32.;
+informat Jump 			best32.;
+informat Abs_Jump 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format Weekday 			best12.;
+format FJ_Dummy 		best12.;
+format Jump 			best12.;
+format Abs_Jump 		best12.;
+
+input Date
+	  Time
+	  Interval
+	  Weekday
+	  FJ_Dummy
+	  Jump
+	  Abs_Jump;
+
+run;
+
+proc sort data= &cur._Jump_1;
+by Date Interval;
+run;
+
+data &cur._Jump_1;
+set &cur._Jump_1;
+
+rename Jump= &cur._Jump;
+keep Date Time Interval Jump;
+run;
+
+%mend upload_jumps;
+
+%upload_jumps (HUF);
+%upload_jumps (MXN);
+%upload_jumps (PLN);
+%upload_jumps (ZAR);
+%upload_jumps (TRY);
+
+%macro currency_pairs2 (cur1, cur2);
+
+data &cur1._&cur2.;
+merge &cur1. &cur2.;
+by Date Interval;
+run;
+
+data &cur1._&cur2.;
+set &cur1._&cur2.;
+
+if &cur1._Ret= . or &cur2._Ret= . then delete;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+%mend currency_pairs2;
+
+%currency_pairs2 (HUF, MXN);
+%currency_pairs2 (HUF, PLN);
+%currency_pairs2 (HUF, ZAR);
+%currency_pairs2 (HUF, TRY);
+%currency_pairs2 (MXN, PLN);
+%currency_pairs2 (MXN, ZAR);
+%currency_pairs2 (MXN, TRY);
+%currency_pairs2 (PLN, ZAR);
+%currency_pairs2 (PLN, TRY);
+%currency_pairs2 (ZAR, TRY);
+
+%macro currency_pairs3 (cur1, cur2, cur3);
+
+data &cur1._&cur2._&cur3.;
+merge &cur1. &cur2. &cur3.;
+by Date Interval;
+run;
+
+data &cur1._&cur2._&cur3.;
+set &cur1._&cur2._&cur3.;
+
+if &cur1._Ret= . or &cur2._Ret= . or &cur3._Ret= . then delete;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+%mend currency_pairs3;
+
+%currency_pairs3 (HUF, MXN, PLN);
+%currency_pairs3 (HUF, MXN, ZAR);
+%currency_pairs3 (HUF, MXN, TRY);
+%currency_pairs3 (HUF, PLN, ZAR);
+%currency_pairs3 (HUF, PLN, TRY);
+%currency_pairs3 (HUF, ZAR, TRY);
+%currency_pairs3 (MXN, PLN, ZAR);
+%currency_pairs3 (MXN, PLN, TRY);
+%currency_pairs3 (MXN, ZAR, TRY);
+%currency_pairs3 (PLN, ZAR, TRY);
+
+%macro currency_pairs4 (cur1, cur2, cur3, cur4);
+
+data &cur1._&cur2._&cur3._&cur4.;
+merge &cur1. &cur2. &cur3. &cur4.;
+by Date Interval;
+run;
+
+data &cur1._&cur2._&cur3._&cur4.;
+set &cur1._&cur2._&cur3._&cur4.;
+
+if &cur1._Ret= . or &cur2._Ret= . or &cur3._Ret= . or &cur4._Ret= . then delete;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+%mend currency_pairs4;
+
+%currency_pairs4 (HUF, MXN, PLN, ZAR);
+%currency_pairs4 (HUF, MXN, PLN, TRY);
+%currency_pairs4 (HUF, MXN, ZAR, TRY);
+%currency_pairs4 (HUF, PLN, ZAR, TRY);
+%currency_pairs4 (MXN, PLN, ZAR, TRY);
+
+%macro currency_pairs5 (cur1, cur2, cur3, cur4, cur5);
+
+data &cur1._&cur2._&cur3._&cur4._&cur5.;
+merge &cur1. &cur2. &cur3. &cur4. &cur5.;
+by Date Interval;
+run;
+
+data &cur1._&cur2._&cur3._&cur4._&cur5.;
+set &cur1._&cur2._&cur3._&cur4._&cur5.;
+
+if &cur1._Ret= . or &cur2._Ret= . or &cur3._Ret= . or &cur4._Ret= . or &cur5._Ret= . then delete;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+%mend currency_pairs5;
+
+%currency_pairs5 (HUF, MXN, PLN, ZAR, TRY);
+
+%macro cojump1 (cur1, cur2);
+
+data cj2_&cur1._&cur2.;
+merge &cur1._jump_1 &cur2._jump_1;
+by Date Interval;
+run;
+
+data cj2_&cur1._&cur2.;
+set cj2_&cur1._&cur2.;
+
+if &cur1._Jump ne . and &cur2._Jump ne .;
+Cojump= 1;
+run;
+
+%mend cojump1;
+
+%cojump1 (HUF, MXN);
+%cojump1 (HUF, PLN);
+%cojump1 (HUF, ZAR);
+%cojump1 (HUF, TRY);
+%cojump1 (MXN, PLN);
+%cojump1 (MXN, ZAR);
+%cojump1 (MXN, TRY);
+%cojump1 (PLN, ZAR);
+%cojump1 (PLN, TRY);
+%cojump1 (ZAR, TRY);
+
+%macro cojump2 (cur1, cur2, cur3);
+
+data cj3_&cur1._&cur2._&cur3.;
+merge &cur1._jump_1 &cur2._jump_1 &cur3._jump_1;
+by Date Interval;
+run;
+
+data cj3_&cur1._&cur2._&cur3.;
+set cj3_&cur1._&cur2._&cur3.;
+
+if &cur1._Jump ne . and &cur2._Jump ne . and &cur3._Jump ne .;
+Cojump= 1;
+run;
+
+%mend cojump2;
+
+%cojump2 (HUF, MXN, PLN);
+%cojump2 (HUF, MXN, ZAR);
+%cojump2 (HUF, MXN, TRY);
+%cojump2 (HUF, PLN, ZAR);
+%cojump2 (HUF, PLN, TRY);
+%cojump2 (HUF, ZAR, TRY);
+%cojump2 (MXN, PLN, ZAR);
+%cojump2 (MXN, PLN, TRY);
+%cojump2 (MXN, ZAR, TRY);
+%cojump2 (PLN, ZAR, TRY);
+
+%macro cojump3 (cur1, cur2, cur3, cur4);
+
+data cj4_&cur1._&cur2._&cur3._&cur4.;
+merge &cur1._jump_1 &cur2._jump_1 &cur3._jump_1 &cur4._jump_1;
+by Date Interval;
+run;
+
+data cj4_&cur1._&cur2._&cur3._&cur4.;
+set cj4_&cur1._&cur2._&cur3._&cur4.;
+
+if &cur1._Jump ne . and &cur2._Jump ne . and &cur3._Jump ne . and &cur4._Jump ne .;
+Cojump= 1;
+run;
+
+%mend cojump3;
+
+%cojump3 (HUF, MXN, PLN, ZAR);
+%cojump3 (HUF, MXN, PLN, TRY);
+%cojump3 (HUF, MXN, ZAR, TRY);
+%cojump3 (HUF, PLN, ZAR, TRY);
+%cojump3 (MXN, PLN, ZAR, TRY);
+
+%macro cojump4 (cur1, cur2, cur3, cur4, cur5);
+
+data cj5_&cur1._&cur2._&cur3._&cur4._&cur5.;
+merge &cur1._jump_1 &cur2._jump_1 &cur3._jump_1 &cur4._jump_1 &cur5._jump_1;
+by Date Interval;
+run;
+
+data cj5_&cur1._&cur2._&cur3._&cur4._&cur5.;
+set cj5_&cur1._&cur2._&cur3._&cur4._&cur5.;
+
+if &cur1._Jump ne . and &cur2._Jump ne . and &cur3._Jump ne . and &cur4._Jump ne . and &cur5._Jump ne .;
+Cojump= 1;
+run;
+
+%mend cojump4;
+
+%cojump4 (HUF, MXN, PLN, ZAR, TRY);
+
+%macro data_import_e (reg, count);
+
+data E_&reg._Final;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\E_&reg._Final.csv"
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 		    	mmddyy10.;
+informat Time 		    	time20.;
+informat Interval 	    	best32.;
+
+%do i= 1 %to &count.;
+
+informat PS_&reg.&i.		best32.;
+informat Diff_&reg.&i.		best32.;
+informat SD_&reg.&i.		best32.;
+informat SD_B_&reg.&i.		best32.;
+informat YSD_&reg.&i.		best32.;
+informat Surp_&reg.&i.		best32.;
+informat Surp_B_&reg.&i.	best32.;
+informat YSurp_&reg.&i.		best32.;
+informat Ratio_&reg.&i.		best32.;
+
+%end;
+
+format Date 		    	mmddyy10.;
+format Time 		    	time20.;
+format Interval 	    	best12.;
+
+%do i= 1 %to &count.;
+
+format PS_&reg.&i.			best12.;
+format Diff_&reg.&i.		best12.;
+format SD_&reg.&i.			best12.;
+format SD_B_&reg.&i.		best12.;
+format YSD_&reg.&i.			best12.;
+format Surp_&reg.&i.		best12.;
+format Surp_B_&reg.&i.		best12.;
+format YSurp_&reg.&i.		best12.;
+format Ratio_&reg.&i.		best12.;
+
+%end;
+
+input Date Time Interval
+	  %do i= 1 %to &count.;
+	  PS_&reg.&i.		
+	  Diff_&reg.&i.			
+	  SD_&reg.&i.
+	  SD_B_&reg.&i.	
+	  YSD_&reg.&i.			
+	  Surp_&reg.&i.	
+	  Surp_B_&reg.&i.
+	  YSurp_&reg.&i.		
+	  Ratio_&reg.&i. %end;
+;
+run;
+
+data E_&reg._Final;
+set E_&reg._Final;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+keep Date Time Interval PS_&reg.1-PS_&reg.&count. Surp_&reg.1-Surp_&reg.&count.;
+run;
+
+data E_&reg._Final;
+set E_&reg._Final;
+
+%do i= 1 %to &count.;
+
+Abs_Surp_&reg.&i.= abs (Surp_&reg.&i.);
+
+%end;
+
+run;
+
+proc sort data= E_&reg._Final;
+by Date Interval;
+run;
+
+%mend data_import_e;
+
+%data_import_e (US, 27);
+%data_import_e (EU, 19);
+%data_import_e (GER, 13);
+%data_import_e (HUN, 13);
+%data_import_e (MEX, 13);
+%data_import_e (POL, 12);
+%data_import_e (SA, 9);
+%data_import_e (TUR, 9);
+
+data n_C_US;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_US\Output\n_C_US.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_US28 		best32.;
+informat n1_Diff_US28 	best32.;
+informat n2_Diff_US28 	best32.;
+informat n1_Surp_US28 	best32.;
+informat n2_Surp_US28 	best32.;
+informat PS_US29 		best32.;
+informat n1_Diff_US29 	best32.;
+informat n2_Diff_US29 	best32.;
+informat n1_Surp_US29 	best32.;
+informat n2_Surp_US29 	best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_US28 		 	best12.;
+format n1_Diff_US28 	best12.;
+format n2_Diff_US28 	best12.;
+format n1_Surp_US28 	best12.;
+format n2_Surp_US28 	best12.;
+format PS_US29 		 	best12.;
+format n1_Diff_US29 	best12.;
+format n2_Diff_US29 	best12.;
+format n1_Surp_US29 	best12.;
+format n2_Surp_US29 	best12.;
+
+input Date 		
+	  Time 		
+	  Interval 	
+	  PS_US28 		 
+	  n1_Diff_US28
+	  n2_Diff_US28 
+	  n1_Surp_US28 
+	  n2_Surp_US28 
+	  PS_US29 		 
+	  n1_Diff_US29 
+	  n2_Diff_US29 
+	  n1_Surp_US29
+	  n2_Surp_US29;
+
+run;
+
+data n_C_US;
+set n_C_US;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+rename n1_Surp_US28= Surp_US28;
+run;
+
+data n_C_US;
+set n_C_US;
+
+Abs_Surp_US28= abs (Surp_US28);
+keep Date Time Interval PS_US28 Surp_US28 Abs_Surp_US28;
+run;
+
+proc sort data= n_C_US;
+by Date Interval;
+run;
+
+data C_US;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_US\Output\C_US.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_US28 		best32.;
+informat Diff_US28 		best32.;
+informat SD_US28 		best32.;
+informat SD_B_US28 		best32.;
+informat YSD_US28 		best32.;
+informat Surp_US28 		best32.;
+informat Surp_B_US28 	best32.;
+informat YSurp_US28 	best32.;
+informat Ratio_US28 	best32.;
+informat PS_US29 		best32.;
+informat Diff_US29 		best32.;
+informat SD_US29 		best32.;
+informat SD_B_US29 		best32.;
+informat YSD_US29 		best32.;
+informat Surp_US29 		best32.;
+informat Surp_B_US29 	best32.;
+informat YSurp_US29 	best32.;
+informat Ratio_US29 	best32.;
+informat PS_US30 		best32.;
+informat PS_US31 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_US28 			best12.;
+format Diff_US28 		best12.;
+format SD_US28 			best12.;
+format SD_B_US28 		best12.;
+format YSD_US28 		best12.;
+format Surp_US28 		best12.;
+format Surp_B_US28 		best12.;
+format YSurp_US28 		best12.;
+format Ratio_US28 		best12.;
+format PS_US29 			best12.;
+format Diff_US29 		best12.;
+format SD_US29 			best12.;
+format SD_B_US29 		best12.;
+format YSD_US29 		best12.;
+format Surp_US29 		best12.;
+format Surp_B_US29 		best12.;
+format YSurp_US29 		best12.;
+format Ratio_US29 		best12.;
+format PS_US30 			best12.;
+format PS_US31 			best12.;
+
+input Date
+      Time
+      Interval
+      PS_US28 		
+	  Diff_US28 	
+	  SD_US28 		
+	  SD_B_US28 	
+	  YSD_US28 	
+	  Surp_US28 	
+	  Surp_B_US28 	
+	  YSurp_US28 	
+	  Ratio_US28 	
+	  PS_US29 		
+	  Diff_US29 	
+	  SD_US29 		
+	  SD_B_US29 	
+	  YSD_US29 	
+	  Surp_US29 	
+	  Surp_B_US29 	
+	  YSurp_US29 	
+	  Ratio_US29 	
+	  PS_US30 		
+	  PS_US31; 		
+
+run;
+
+data C_US;
+set C_US;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+keep Date Time Interval PS_US30 PS_US31;
+run;
+
+proc sort data= C_US;
+by Date Interval;
+run;
+
+data C_HUN;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_HUN\Output\C_HUN.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_HUN14 		best32.;
+informat Diff_HUN14 	best32.;
+informat SD_HUN14 		best32.;
+informat SD_B_HUN14 	best32.;
+informat YSD_HUN14 		best32.;
+informat Surp_HUN14 	best32.;
+informat Surp_B_HUN14 	best32.;
+informat YSurp_HUN14 	best32.;
+informat Ratio_HUN14 	best32.;
+informat PS_HUN15 		best32.;
+informat PS_HUN16 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_HUN14 		best12.;
+format Diff_HUN14 		best12.;
+format SD_HUN14 		best12.;
+format SD_B_HUN14 		best12.;
+format YSD_HUN14 		best12.;
+format Surp_HUN14 		best12.;
+format Surp_B_HUN14 	best12.;
+format YSurp_HUN14 		best12.;
+format Ratio_HUN14 		best12.;
+format PS_HUN15 		best12.;
+format PS_HUN16 		best12.;
+
+input Date
+      Time
+      Interval
+      PS_HUN14 	
+	  Diff_HUN14 	
+      SD_HUN14 	
+      SD_B_HUN14 	
+      YSD_HUN14 	
+      Surp_HUN14 	
+	  Surp_B_HUN14 
+	  YSurp_HUN14 	
+	  Ratio_HUN14 	
+	  PS_HUN15 	
+	  PS_HUN16; 	
+
+run;
+
+data C_HUN;
+set C_HUN;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+Abs_Surp_HUN14= abs (Surp_HUN14);
+keep Date Time Interval PS_HUN14 PS_HUN15 PS_HUN16 Surp_HUN14 Abs_Surp_HUN14;
+run;
+
+proc sort data= C_HUN;
+by Date Interval;
+run;
+
+data C_MEX;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_MEX\Output\C_MEX.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_MEX14 		best32.;
+informat Diff_MEX14 	best32.;
+informat SD_MEX14 		best32.;
+informat SD_B_MEX14 	best32.;
+informat YSD_MEX14 		best32.;
+informat Surp_MEX14 	best32.;
+informat Surp_B_MEX14 	best32.;
+informat YSurp_MEX14 	best32.;
+informat Ratio_MEX14 	best32.;
+informat PS_MEX15 		best32.;
+informat PS_MEX16 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_MEX14 		best12.;
+format Diff_MEX14 		best12.;
+format SD_MEX14 		best12.;
+format SD_B_MEX14 		best12.;
+format YSD_MEX14 		best12.;
+format Surp_MEX14 		best12.;
+format Surp_B_MEX14 	best12.;
+format YSurp_MEX14 		best12.;
+format Ratio_MEX14 		best12.;
+format PS_MEX15 		best12.;
+format PS_MEX16 		best12.;
+
+input Date
+      Time
+      Interval
+      PS_MEX14 	
+	  Diff_MEX14 	
+      SD_MEX14 	
+      SD_B_MEX14 	
+      YSD_MEX14 	
+      Surp_MEX14 	
+	  Surp_B_MEX14 
+	  YSurp_MEX14 	
+	  Ratio_MEX14 	
+	  PS_MEX15 	
+	  PS_MEX16; 	
+
+run;
+
+data C_MEX;
+set C_MEX;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+Abs_Surp_MEX14= abs (Surp_MEX14);
+keep Date Time Interval PS_MEX14 PS_MEX15 PS_MEX16 Surp_MEX14 Abs_Surp_MEX14;
+run;
+
+proc sort data= C_MEX;
+by Date Interval;
+run;
+
+data C_POL;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_POL\Output\C_POL.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_POL13 		best32.;
+informat Diff_POL13 	best32.;
+informat SD_POL13 		best32.;
+informat SD_B_POL13 	best32.;
+informat YSD_POL13 		best32.;
+informat Surp_POL13 	best32.;
+informat Surp_B_POL13 	best32.;
+informat YSurp_POL13 	best32.;
+informat Ratio_POL13 	best32.;
+informat PS_POL14 		best32.;
+informat PS_POL15 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_POL13 		best12.;
+format Diff_POL13 		best12.;
+format SD_POL13 		best12.;
+format SD_B_POL13 		best12.;
+format YSD_POL13 		best12.;
+format Surp_POL13 		best12.;
+format Surp_B_POL13 	best12.;
+format YSurp_POL13 		best12.;
+format Ratio_POL13 		best12.;
+format PS_POL14 		best12.;
+format PS_POL15 		best12.;
+
+input Date
+      Time
+      Interval
+      PS_POL13 	
+	  Diff_POL13 	
+      SD_POL13 	
+      SD_B_POL13 	
+      YSD_POL13 	
+      Surp_POL13 	
+	  Surp_B_POL13 
+	  YSurp_POL13 	
+	  Ratio_POL13 	
+	  PS_POL14 	
+	  PS_POL15; 	
+
+run;
+
+data C_POL;
+set C_POL;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+Abs_Surp_POL13= abs (Surp_POL13);
+keep Date Time Interval PS_POL13 PS_POL14 PS_POL15 Surp_POL13 Abs_Surp_POL13;
+run;
+
+proc sort data= C_POL;
+by Date Interval;
+run;
+
+data C_SA;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_SA\Output\C_SA.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_SA10 		best32.;
+informat Diff_SA10 		best32.;
+informat SD_SA10 		best32.;
+informat SD_B_SA10 		best32.;
+informat YSD_SA10 		best32.;
+informat Surp_SA10 		best32.;
+informat Surp_B_SA10 	best32.;
+informat YSurp_SA10 	best32.;
+informat Ratio_SA10 	best32.;
+informat PS_SA11 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_SA10 			best12.;
+format Diff_SA10 		best12.;
+format SD_SA10 			best12.;
+format SD_B_SA10 		best12.;
+format YSD_SA10 		best12.;
+format Surp_SA10 		best12.;
+format Surp_B_SA10 		best12.;
+format YSurp_SA10 		best12.;
+format Ratio_SA10 		best12.;
+format PS_SA11 			best12.;
+
+input Date
+      Time
+      Interval
+      PS_SA10 	
+	  Diff_SA10 	
+      SD_SA10 	
+      SD_B_SA10 	
+      YSD_SA10 	
+      Surp_SA10 	
+	  Surp_B_SA10 
+	  YSurp_SA10 	
+	  Ratio_SA10 	
+	  PS_SA11; 	
+
+run;
+
+data C_SA;
+set C_SA;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+Abs_Surp_SA10= abs (Surp_SA10);
+keep Date Time Interval PS_SA10 PS_SA11 Surp_SA10 Abs_Surp_SA10;
+run;
+
+proc sort data= C_SA;
+by Date Interval;
+run;
+
+data C_TUR;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_TUR\Output\C_TUR.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_TUR10 		best32.;
+informat Diff_TUR10 	best32.;
+informat SD_TUR10 		best32.;
+informat SD_B_TUR10 	best32.;
+informat YSD_TUR10 		best32.;
+informat Surp_TUR10 	best32.;
+informat Surp_B_TUR10 	best32.;
+informat YSurp_TUR10 	best32.;
+informat Ratio_TUR10 	best32.;
+informat PS_TUR11 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_TUR10 		best12.;
+format Diff_TUR10 		best12.;
+format SD_TUR10 		best12.;
+format SD_B_TUR10 		best12.;
+format YSD_TUR10 		best12.;
+format Surp_TUR10 		best12.;
+format Surp_B_TUR10 	best12.;
+format YSurp_TUR10 		best12.;
+format Ratio_TUR10 		best12.;
+format PS_TUR11 		best12.;
+
+input Date
+      Time
+      Interval
+      PS_TUR10 	
+	  Diff_TUR10 	
+      SD_TUR10 	
+      SD_B_TUR10 	
+      YSD_TUR10 	
+      Surp_TUR10 	
+	  Surp_B_TUR10 
+	  YSurp_TUR10 	
+	  Ratio_TUR10 	
+	  PS_TUR11; 	
+
+run;
+
+data C_TUR;
+set C_TUR;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+Abs_Surp_TUR10= abs (Surp_TUR10);
+keep Date Time Interval PS_TUR10 PS_TUR11 Surp_TUR10 Abs_Surp_TUR10;
+run;
+
+proc sort data= C_TUR;
+by Date Interval;
+run;
+
+%macro speech (count);
+
+data Speech;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Speech.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best12.;
+
+%do i= 1 %to &count.;
+
+informat SP&i. 			best12.;
+
+%end;
+
+informat Total 			best12.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+
+%do i= 1 %to &count.;
+
+format SP&i. 			best12.;
+
+%end;
+
+format Total 			best12.;
+
+input Date Time Interval
+	  %do i= 1 %to &count.;
+	  SP&i. %end;
+	  Total;
+run;
+
+%mend speech;
+
+%speech (35);
+
+data Speech;
+set Speech;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+*if Total ge 1 then DSpeech= 1;
+*keep Date Time Interval DSpeech;
+drop Total Year;
+run;
+
+%macro cojump1_news (cur1, cur2, reg1, reg2, count1, count2);
+
+proc sort data= cj2_&cur1._&cur2.;
+by Date Interval;
+run;
+
+data cj2n_&cur1._&cur2.;
+merge cj2_&cur1._&cur2. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final
+      n_C_US C_US C_&reg1. C_&reg2. Speech;
+by Date Interval;
+run;
+
+data cj2n_&cur1._&cur2.;
+set cj2n_&cur1._&cur2.;
+
+if &cur1._Jump= . and &cur2._Jump= . then delete;
+drop &cur1._Jump &cur2._Jump;
+run;
+
+proc means data= cj2n_&cur1._&cur2. nway noprint;
+var PS_US1-PS_US28 PS_US30 PS_US31 PS_EU1-PS_EU19 PS_GER1-PS_GER13 PS_&reg1.1-PS_&reg1.&count1.
+	PS_&reg2.1-PS_&reg2.&count2. SP1-SP35;
+output out= S_cj2n_&cur1._&cur2. sum= /autoname;
+run;
+
+data S_cj2n_&cur1._&cur2.;
+set S_cj2n_&cur1._&cur2.;
+
+Total= sum (of PS:, of SP:);
+run;
+
+%mend cojump1_news;
+
+%cojump1_news (HUF, MXN, HUN, MEX, 16, 16);
+%cojump1_news (HUF, PLN, HUN, POL, 16, 15);
+%cojump1_news (HUF, ZAR, HUN, SA, 16, 11);
+%cojump1_news (HUF, TRY, HUN, TUR, 16, 11);
+%cojump1_news (MXN, PLN, MEX, POL, 16, 15);
+%cojump1_news (MXN, ZAR, MEX, SA, 16, 11);
+%cojump1_news (MXN, TRY, MEX, TUR, 16,11);
+%cojump1_news (PLN, ZAR, POL, SA, 15, 11);
+%cojump1_news (PLN, TRY, POL, TUR, 15, 11);
+%cojump1_news (ZAR, TRY, SA, TUR, 11, 11);
+
+%macro cojump2_news (cur1, cur2, cur3, reg1, reg2, reg3, count1, count2, count3);
+
+proc sort data= cj3_&cur1._&cur2._&cur3.;
+by Date Interval;
+run;
+
+data cj3n_&cur1._&cur2._&cur3.;
+merge cj3_&cur1._&cur2._&cur3. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final E_&reg3._Final
+      n_C_US C_US C_&reg1. C_&reg2. C_&reg3. Speech;
+by Date Interval;
+run;
+
+data cj3n_&cur1._&cur2._&cur3.;
+set cj3n_&cur1._&cur2._&cur3.;
+
+if &cur1._Jump= . and &cur2._Jump= . and &cur3._Jump= . then delete;
+drop &cur1._Jump &cur2._Jump &cur3._Jump;
+run;
+
+proc means data= cj3n_&cur1._&cur2._&cur3. nway noprint;
+var PS_US1-PS_US28 PS_US30 PS_US31 PS_EU1-PS_EU19 PS_GER1-PS_GER13 PS_&reg1.1-PS_&reg1.&count1. PS_&reg2.1-PS_&reg2.&count2.
+    PS_&reg3.1-PS_&reg3.&count3. SP1-SP35;
+output out= S_cj3n_&cur1._&cur2._&cur3. sum= /autoname;
+run;
+
+data S_cj3n_&cur1._&cur2._&cur3.;
+set S_cj3n_&cur1._&cur2._&cur3.;
+
+Total= sum (of PS:, of SP:);
+run;
+
+%mend cojump2_news;
+
+%cojump2_news (HUF, MXN, PLN, HUN, MEX, POL, 16, 16, 15);
+%cojump2_news (HUF, MXN, ZAR, HUN, MEX, SA, 16, 16, 11);
+%cojump2_news (HUF, MXN, TRY, HUN, MEX, TUR, 16, 16, 11);
+%cojump2_news (HUF, PLN, ZAR, HUN, POL, SA, 16, 15, 11);
+%cojump2_news (HUF, PLN, TRY, HUN, POL, TUR, 16, 15, 11);
+%cojump2_news (HUF, ZAR, TRY, HUN, SA, TUR, 16, 11, 11);
+%cojump2_news (MXN, PLN, ZAR, MEX, POL, SA, 16, 15, 11);
+%cojump2_news (MXN, PLN, TRY, MEX, POL, TUR, 16, 15, 11);
+%cojump2_news (MXN, ZAR, TRY, MEX, SA, TUR, 16, 11, 11);
+%cojump2_news (PLN, ZAR, TRY, POL, SA, TUR, 15, 11, 11);
+
+%macro cojump3_news (cur1, cur2, cur3, cur4, reg1, reg2, reg3, reg4, count1, count2, count3, count4);
+
+proc sort data= cj4_&cur1._&cur2._&cur3._&cur4.;
+by Date Interval;
+run;
+
+data cj4n_&cur1._&cur2._&cur3._&cur4.;
+merge cj4_&cur1._&cur2._&cur3._&cur4. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final E_&reg3._Final
+      E_&reg4._Final n_C_US C_US C_&reg1. C_&reg2. C_&reg3. C_&reg4. Speech;
+by Date Interval;
+run;
+
+data cj4n_&cur1._&cur2._&cur3._&cur4.;
+set cj4n_&cur1._&cur2._&cur3._&cur4.;
+
+if &cur1._Jump= . and &cur2._Jump= . and &cur3._Jump= . and &cur4._Jump= . then delete;
+drop &cur1._Jump &cur2._Jump &cur3._Jump &cur4._Jump;
+run;
+
+proc means data= cj4n_&cur1._&cur2._&cur3._&cur4. nway noprint;
+var PS_US1-PS_US28 PS_US30 PS_US31 PS_EU1-PS_EU19 PS_GER1-PS_GER13 PS_&reg1.1-PS_&reg1.&count1. PS_&reg2.1-PS_&reg2.&count2.
+    PS_&reg3.1-PS_&reg3.&count3. PS_&reg4.1-PS_&reg4.&count4. SP1-SP35;
+output out= S_cj4n_&cur1._&cur2._&cur3._&cur4. sum= /autoname;
+run;
+
+data S_cj4n_&cur1._&cur2._&cur3._&cur4.;
+set S_cj4n_&cur1._&cur2._&cur3._&cur4.;
+
+Total= sum (of PS:, of SP:);
+run;
+
+%mend cojump3_news;
+
+%cojump3_news (HUF, MXN, PLN, ZAR, HUN, MEX, POL, SA, 16, 16, 15, 11);
+%cojump3_news (HUF, MXN, PLN, TRY, HUN, MEX, POL, TUR, 16,16,15, 11);
+%cojump3_news (HUF, MXN, ZAR, TRY, HUN, MEX, SA, TUR, 16, 16, 11, 11);
+%cojump3_news (HUF, PLN, ZAR, TRY, HUN, POL, SA, TUR, 16, 15, 11, 11);
+%cojump3_news (MXN, PLN, ZAR, TRY, MEX, POL, SA, TUR, 16, 15, 11, 11);
+
+%macro cojump4_news (cur1, cur2, cur3, cur4, cur5, reg1, reg2, reg3, reg4, reg5, count1, count2, count3, count4, count5);
+
+proc sort data= cj5_&cur1._&cur2._&cur3._&cur4._&cur5.;
+by Date Interval;
+run;
+
+data cj5n_&cur1._&cur2._&cur3._&cur4._&cur5.;
+merge cj5_&cur1._&cur2._&cur3._&cur4._&cur5. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final E_&reg3._Final
+      E_&reg4._Final E_&reg5._Final n_C_US C_US C_&reg1. C_&reg2. C_&reg3. C_&reg4. C_&reg5. Speech;
+by Date Interval;
+run;
+
+data cj5n_&cur1._&cur2._&cur3._&cur4._&cur5.;
+set cj5n_&cur1._&cur2._&cur3._&cur4._&cur5.;
+
+if &cur1._Jump= . and &cur2._Jump= . and &cur3._Jump= . and &cur4._Jump= . and &cur5._Jump= . then delete;
+drop &cur1._Jump &cur2._Jump &cur3._Jump &cur4._Jump &cur5._Jump;
+run;
+
+proc means data= cj5n_&cur1._&cur2._&cur3._&cur4._&cur5. nway noprint;
+var PS_US1-PS_US28 PS_US30 PS_US31 PS_EU1-PS_EU19 PS_GER1-PS_GER13 PS_&reg1.1-PS_&reg1.&count1. PS_&reg2.1-PS_&reg2.&count2.
+    PS_&reg3.1-PS_&reg3.&count3. PS_&reg4.1-PS_&reg4.&count4. PS_&reg5.1-PS_&reg5.&count5. SP1-SP35;
+output out= S_cj5n_&cur1._&cur2._&cur3._&cur4._&cur5. sum= /autoname;
+run;
+
+data S_cj5n_&cur1._&cur2._&cur3._&cur4._&cur5.;
+set S_cj5n_&cur1._&cur2._&cur3._&cur4._&cur5.;
+
+Total= sum (of PS:, of SP:);
+run;
+
+%mend cojump4_news;
+
+%cojump4_news (HUF, MXN, PLN, ZAR, TRY, HUN, MEX, POL, SA, TUR, 16, 16, 15, 11, 11);
+
+%macro probit_dataset1 (cur1, cur2);
+
+data ds2_&cur1._&cur2.;
+merge &cur1._&cur2. cj2n_&cur1._&cur2.;
+by Date Interval;
+run;
+
+data ds2_&cur1._&cur2.;
+set ds2_&cur1._&cur2.;
+
+if Cojump= . then Cojump= 0;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump;
+run;
+
+proc sort data= ds2_&cur1._&cur2.;
+by Date Interval;
+run;
+
+%mend probit_dataset1;
+
+%probit_dataset1 (HUF, MXN);
+%probit_dataset1 (HUF, PLN);
+%probit_dataset1 (HUF, ZAR);
+%probit_dataset1 (HUF, TRY);
+%probit_dataset1 (MXN, PLN);
+%probit_dataset1 (MXN, ZAR);
+%probit_dataset1 (MXN, TRY);
+%probit_dataset1 (PLN, ZAR);
+%probit_dataset1 (PLN, TRY);
+%probit_dataset1 (ZAR, TRY);
+
+%macro probit_dataset2 (cur1, cur2, cur3);
+
+data ds3_&cur1._&cur2._&cur3.;
+merge &cur1._&cur2._&cur3. cj3n_&cur1._&cur2._&cur3.;
+by Date Interval;
+run;
+
+data ds3_&cur1._&cur2._&cur3.;
+set ds3_&cur1._&cur2._&cur3.;
+
+if Cojump= . then Cojump= 0;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump;
+run;
+
+proc sort data= ds3_&cur1._&cur2._&cur3.;
+by Date Interval;
+run;
+
+%mend probit_dataset2;
+
+%probit_dataset2 (HUF, MXN, PLN);
+%probit_dataset2 (HUF, MXN, ZAR);
+%probit_dataset2 (HUF, MXN, TRY);
+%probit_dataset2 (HUF, PLN, ZAR);
+%probit_dataset2 (HUF, PLN, TRY);
+%probit_dataset2 (HUF, ZAR, TRY);
+%probit_dataset2 (MXN, PLN, ZAR);
+%probit_dataset2 (MXN, PLN, TRY);
+%probit_dataset2 (MXN, ZAR, TRY);
+%probit_dataset2 (PLN, ZAR, TRY);
+
+%macro probit_dataset3 (cur1, cur2, cur3, cur4);
+
+data ds4_&cur1._&cur2._&cur3._&cur4.;
+merge &cur1._&cur2._&cur3._&cur4. cj4n_&cur1._&cur2._&cur3._&cur4.;
+by Date Interval;
+run;
+
+data ds4_&cur1._&cur2._&cur3._&cur4.;
+set ds4_&cur1._&cur2._&cur3._&cur4.;
+
+if Cojump= . then Cojump= 0;
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump;
+run;
+
+proc sort data= ds4_&cur1._&cur2._&cur3._&cur4.;
+by Date Interval;
+run;
+
+%mend probit_dataset3;
+
+%probit_dataset3 (HUF, MXN, PLN, ZAR);
+%probit_dataset3 (HUF, MXN, PLN, TRY);
+%probit_dataset3 (HUF, MXN, ZAR, TRY);
+%probit_dataset3 (HUF, PLN, ZAR, TRY);
+%probit_dataset3 (MXN, PLN, ZAR, TRY);
+
+%macro final_dataset1 (cur1, cur2, reg1, reg2);
+
+data mds2_&cur1._&cur2.;
+merge ds2_&cur1._&cur2. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final
+      n_C_US C_US C_&reg1. C_&reg2. Speech;
+by Date Interval;
+run;
+
+data mds2_&cur1._&cur2.;
+set mds2_&cur1._&cur2.;
+if Cojump= . then delete;
+run;
+
+%mend final_dataset1;
+
+%final_dataset1 (HUF, MXN, HUN, MEX);
+%final_dataset1 (HUF, PLN, HUN, POL);
+%final_dataset1 (HUF, ZAR, HUN, SA);
+%final_dataset1 (HUF, TRY, HUN, TUR);
+%final_dataset1 (MXN, PLN, MEX, POL);
+%final_dataset1 (MXN, ZAR, MEX, SA);
+%final_dataset1 (MXN, TRY, MEX, TUR);
+%final_dataset1 (PLN, ZAR, POL, SA);
+%final_dataset1 (PLN, TRY, POL, TUR);
+%final_dataset1 (ZAR, TRY, SA, TUR);
+
+%macro final_dataset2 (cur1, cur2, cur3, reg1, reg2, reg3);
+
+data mds3_&cur1._&cur2._&cur3.;
+merge ds3_&cur1._&cur2._&cur3. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final E_&reg3._Final
+      n_C_US C_US C_&reg1. C_&reg2. C_&reg3. Speech;
+by Date Interval;
+run;
+
+data mds3_&cur1._&cur2._&cur3.;
+set mds3_&cur1._&cur2._&cur3.;
+if Cojump= . then delete;
+run;
+
+%mend final_dataset2;
+
+%final_dataset2 (HUF, MXN, PLN, HUN, MEX, POL);
+%final_dataset2 (HUF, MXN, PLN, HUN, MEX, POL);
+%final_dataset2 (HUF, MXN, ZAR, HUN, MEX, SA);
+%final_dataset2 (HUF, MXN, TRY, HUN, MEX, TUR);
+%final_dataset2 (HUF, PLN, ZAR, HUN, POL, SA);
+%final_dataset2 (HUF, PLN, TRY, HUN, POL, TUR);
+%final_dataset2 (HUF, ZAR, TRY, HUN, SA, TUR);
+%final_dataset2 (MXN, PLN, ZAR, MEX, POL, SA);
+%final_dataset2 (MXN, PLN, TRY, MEX, POL, TUR);
+%final_dataset2 (MXN, ZAR, TRY, MEX, SA, TUR);
+%final_dataset2 (PLN, ZAR, TRY, POL, SA, TUR);
+
+%macro final_dataset3 (cur1, cur2, cur3, cur4, reg1, reg2, reg3, reg4);
+
+data mds4_&cur1._&cur2._&cur3._&cur4.;
+merge ds4_&cur1._&cur2._&cur3._&cur4. E_US_Final E_EU_Final E_GER_Final E_&reg1._Final E_&reg2._Final E_&reg3._Final
+      E_&reg4._Final n_C_US C_US C_&reg1. C_&reg2. C_&reg3. C_&reg4. Speech;
+by Date Interval;
+run;
+
+data mds4_&cur1._&cur2._&cur3._&cur4.;
+set mds4_&cur1._&cur2._&cur3._&cur4.;
+if Cojump= . then delete;
+run;
+
+%mend final_dataset3;
+
+%final_dataset3 (HUF, MXN, PLN, ZAR, HUN, MEX, POL, SA);
+%final_dataset3 (HUF, MXN, PLN, TRY, HUN, MEX, POL, TUR);
+%final_dataset3 (HUF, MXN, ZAR, TRY, HUN, MEX, SA, TUR);
+%final_dataset3 (HUF, PLN, ZAR, TRY, HUN, POL, SA, TUR);
+%final_dataset3 (MXN, PLN, ZAR, TRY, MEX, POL, SA, TUR);
+
+*====================================================
+         Cojump Probit Regression Preparation
+=====================================================;
+
+data fds2_HUF_MXN;
+set mds2_HUF_MXN;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US9 Abs_Surp_US22 PS_US30;
+
+if Abs_Surp_US9= .		then Abs_Surp_US9= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds2_HUF_PLN;
+set mds2_HUF_PLN;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US25 Abs_Surp_US28 PS_HUN16 SP35;
+
+if Abs_Surp_US25= .		then Abs_Surp_US25= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_HUN16= .			then PS_HUN16= 0;
+if SP35= .			    then SP35= 0;
+run;
+
+data fds2_HUF_TRY;
+set mds2_HUF_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US9 Abs_Surp_US22 Abs_Surp_US28 PS_US30 PS_HUN16;
+
+if Abs_Surp_US9= .		then Abs_Surp_US9= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+if PS_HUN16= .			then PS_HUN16= 0;
+run;
+
+data fds2_HUF_ZAR;
+set mds2_HUF_ZAR;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US28 PS_US30;
+
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds2_MXN_PLN;
+set mds2_MXN_PLN;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+data fds2_MXN_TRY;
+set mds2_MXN_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US5 Abs_Surp_US9 Abs_Surp_US11 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US5= .		then Abs_Surp_US5= 0;
+if Abs_Surp_US9= .		then Abs_Surp_US9= 0;
+if Abs_Surp_US11= .		then Abs_Surp_US11= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+data fds2_MXN_ZAR;
+set mds2_MXN_ZAR;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US11 Abs_Surp_US20 Abs_Surp_US22 Abs_Surp_US28 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US11= .		then Abs_Surp_US11= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+data fds2_PLN_TRY;
+set mds2_PLN_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 Abs_Surp_US28 PS_US30 Abs_Surp_TUR5;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_TUR5= .		then Abs_Surp_TUR5= 0;
+run;
+
+data fds2_PLN_ZAR;
+set mds2_PLN_ZAR;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 Abs_Surp_US28 PS_US30;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds2_ZAR_TRY;
+set mds2_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US11 Abs_Surp_US20 Abs_Surp_US22 Abs_Surp_US28 PS_US30;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US11= .		then Abs_Surp_US11= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds3_HUF_MXN_TRY;
+set mds3_HUF_MXN_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US9 Abs_Surp_US22 PS_US30;
+
+if Abs_Surp_US9= .		then Abs_Surp_US9= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds3_HUF_MXN_ZAR;
+set mds3_HUF_MXN_ZAR;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 PS_US30;
+
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds3_HUF_PLN_TRY;
+set mds3_HUF_PLN_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US28 PS_HUN16;
+
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_HUN16= .			then PS_HUN16= 0;
+run;
+
+data fds3_HUF_PLN_ZAR;
+set mds3_HUF_PLN_ZAR;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US28;
+
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+run;
+
+data fds3_HUF_ZAR_TRY;
+set mds3_HUF_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US28 PS_US30;
+
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds3_MXN_PLN_TRY;
+set mds3_MXN_PLN_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+data fds3_MXN_PLN_ZAR;
+set mds3_MXN_PLN_ZAR;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+data fds3_MXN_ZAR_TRY;
+set mds3_MXN_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US11 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US11= .		then Abs_Surp_US11= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+data fds3_PLN_ZAR_TRY;
+set mds3_PLN_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 Abs_Surp_US28 PS_US30;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if Abs_Surp_US28= .		then Abs_Surp_US28= 0;
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds4_HUF_MXN_ZAR_TRY;
+set mds4_HUF_MXN_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 PS_US30;
+
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds4_HUF_PLN_ZAR_TRY;
+set mds4_HUF_PLN_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 PS_US30;
+
+if PS_US30= .			then PS_US30= 0;
+run;
+
+data fds4_MXN_PLN_ZAR_TRY;
+set mds4_MXN_PLN_ZAR_TRY;
+
+keep Date Time Interval DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Cojump
+	 Abs_Surp_US4 Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10;
+
+if Abs_Surp_US4= .		then Abs_Surp_US4= 0;
+if Abs_Surp_US8= .		then Abs_Surp_US8= 0;
+if Abs_Surp_US20= .		then Abs_Surp_US20= 0;
+if Abs_Surp_US22= .		then Abs_Surp_US22= 0;
+if PS_US30= .			then PS_US30= 0;
+if Abs_Surp_MEX10= .	then Abs_Surp_MEX10= 0;
+run;
+
+%macro exporting1 (cur1, cur2);
+
+proc export data= fds2_&cur1._&cur2. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\2-Cojump\Output\fds2_&cur1._&cur2..csv" 
+replace;
+run;
+
+%mend exporting1;
+
+%exporting1 (HUF, MXN);
+%exporting1 (HUF, PLN);
+%exporting1 (HUF, ZAR);
+%exporting1 (HUF, TRY);
+%exporting1 (MXN, PLN);
+%exporting1 (MXN, ZAR);
+%exporting1 (MXN, TRY);
+%exporting1 (PLN, ZAR);
+%exporting1 (PLN, TRY);
+%exporting1 (ZAR, TRY);
+
+%macro exporting2 (cur1, cur2, cur3);
+
+proc export data= fds3_&cur1._&cur2._&cur3. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\2-Cojump\Output\fds3_&cur1._&cur2._&cur3..csv" 
+replace;
+run;
+
+%mend exporting2;
+
+%exporting2 (HUF, MXN, PLN);
+%exporting2 (HUF, MXN, ZAR);
+%exporting2 (HUF, MXN, TRY);
+%exporting2 (HUF, PLN, ZAR);
+%exporting2 (HUF, PLN, TRY);
+%exporting2 (HUF, ZAR, TRY);
+%exporting2 (MXN, PLN, ZAR);
+%exporting2 (MXN, PLN, TRY);
+%exporting2 (MXN, ZAR, TRY);
+%exporting2 (PLN, ZAR, TRY);
+
+%macro exporting3 (cur1, cur2, cur3, cur4);
+
+proc export data= fds4_&cur1._&cur2._&cur3._&cur4. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\2-Jump and Cojump\2-Cojump\Output\fds4_&cur1._&cur2._&cur3._&cur4..csv" 
+replace;
+run;
+
+%mend exporting3;
+
+%exporting3 (HUF, MXN, PLN, ZAR);
+%exporting3 (HUF, MXN, PLN, TRY);
+%exporting3 (HUF, MXN, ZAR, TRY);
+%exporting3 (HUF, PLN, ZAR, TRY);
+%exporting3 (MXN, PLN, ZAR, TRY);
+
+/*proc logistic data= fds2_MXN_PLN descending;
+model Cojump= DW_Mon DW_Tue DW_Wed DW_Thu Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4 Abs_Surp_US4
+			  Abs_Surp_US8 Abs_Surp_US20 Abs_Surp_US22 PS_US30 Abs_Surp_MEX10 / link= probit rsquare;
+run; quit;*/
