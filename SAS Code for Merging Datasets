@@ -1,0 +1,865 @@
+
+options mprint;
+
+*====================================================================
+			UPLOADING ALL THE REQUIRED DATASETS:
+=====================================================================;
+
+%macro uploading_currency (reg, cur);
+
+data &cur.;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\1-Quotes_&reg.\Output\&cur..csv"
+delimiter= ',' missover dsd lrecl=32767 firstobs=2;
+
+informat Date 				mmddyy10.;
+informat Time 			 	time20.;
+informat Interval 			best32.;
+informat Day 				$3.;
+informat Year 				best32.;
+informat Ask_Close 			best32.;
+informat Bid_Close 			best32.;
+informat Price 				best32.;
+informat Return 		 	best32.;
+informat Volatility 		best32.;
+informat Volatility_YAvg 	best32.;
+informat Volatility_DAvg 	best32.;
+informat Volatility_SAvg 	best32.;
+informat Return_S			best32.;
+informat Volatility_Mon_Avg best32.;
+informat Volatility_Tue_Avg best32.;
+informat Volatility_Wed_Avg best32.;
+informat Volatility_Thu_Avg best32.;
+informat Volatility_Fri_Avg best32.;
+
+format Date 				mmddyy10.;
+format Time 				time20.;
+format Interval 			best12.;
+format Day 					$3.;
+format Year 				best12.;
+format Ask_Close 			best12.;
+format Bid_Close 			best12.;
+format Price 				best12.;
+format Return 				best12.;
+format Volatility 			best12.;
+format Volatility_YAvg 		best12.;
+format Volatility_DAvg 		best12.;
+format Volatility_SAvg 		best12.;
+format Return_S				best12.;
+format Volatility_Mon_Avg 	best12.;
+format Volatility_Tue_Avg 	best12.;
+format Volatility_Wed_Avg 	best12.;
+format Volatility_Thu_Avg 	best12.;
+format Volatility_Fri_Avg 	best12.;
+
+input Date
+      Time
+      Interval
+      Day  $
+      Year
+      Ask_Close
+      Bid_Close
+      Price
+      Return
+      Volatility
+      Volatility_YAvg
+	  Volatility_DAvg
+      Volatility_SAvg
+	  Return_S
+	  Volatility_Mon_Avg
+	  Volatility_Tue_Avg
+	  Volatility_Wed_Avg
+	  Volatility_Thu_Avg
+	  Volatility_Fri_Avg;
+run;
+
+proc sort data= &cur.;
+by Date Interval;
+run;
+
+%mend uploading_currency;
+
+%uploading_currency (HUN, HUF);
+
+%macro subsample1 (cur);
+
+data &cur.;
+set &cur.;
+
+if Year ge 2010 and Year le 2017;
+run;
+
+%mend subsample1;
+
+%subsample1 (HUF);
+
+%macro day_of_week_dummy (cur);
+
+data &cur.;
+set &cur.;
+
+if Day= "Mon" then DW_Mon= 1; else DW_Mon= 0;
+if Day= "Tue" then DW_Tue= 1; else DW_Tue= 0;
+if Day= "Wed" then DW_Wed= 1; else DW_Wed= 0;
+if Day= "Thu" then DW_Thu= 1; else DW_Thu= 0;
+run;
+
+%mend day_of_week_dummy;
+
+%day_of_week_dummy (HUF);
+
+%macro FFF (cur, reg);
+
+data FFF_&cur.;
+set &cur.;
+
+num= Interval;
+nobs= 288;
+
+p= 1;
+Sin1= sin( 2 * p * constant("pi")*num/nobs);
+Cos1= cos( 2 * p * constant("pi")*num/nobs);
+p= 2;
+Sin2= sin( 2 * p * constant("pi")*num/nobs);
+Cos2= cos( 2 * p * constant("pi")*num/nobs);
+p= 3;
+Sin3= sin( 2 * p * constant("pi")*num/nobs);
+Cos3= cos( 2 * p * constant("pi")*num/nobs);
+p= 4;
+Sin4= sin( 2 * p * constant("pi")*num/nobs);
+Cos4= cos( 2 * p * constant("pi")*num/nobs);
+
+keep Date Time Interval Sin1 Sin2 Sin3 Sin4 Cos1 Cos2 Cos3 Cos4;
+run;
+
+proc export data= FFF_&cur. dbms= csv
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_&reg.\Output\FFF_&cur..csv" 
+replace;
+run;
+
+%mend FFF;
+
+%FFF (HUF, HUN);
+
+%macro data_import_e (reg, count);
+
+data E_&reg._Final;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\E_&reg._Final.csv"
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 		    	mmddyy10.;
+informat Time 		    	time20.;
+informat Interval 	    	best32.;
+
+%do i= 1 %to &count.;
+
+informat PS_&reg.&i.		best32.;
+informat Diff_&reg.&i.		best32.;
+informat SD_&reg.&i.		best32.;
+informat SD_B_&reg.&i.		best32.;
+informat YSD_&reg.&i.		best32.;
+informat Surp_&reg.&i.		best32.;
+informat Surp_B_&reg.&i.	best32.;
+informat YSurp_&reg.&i.		best32.;
+informat Ratio_&reg.&i.		best32.;
+
+%end;
+
+format Date 		    	mmddyy10.;
+format Time 		    	time20.;
+format Interval 	    	best12.;
+
+%do i= 1 %to &count.;
+
+format PS_&reg.&i.			best12.;
+format Diff_&reg.&i.		best12.;
+format SD_&reg.&i.			best12.;
+format SD_B_&reg.&i.		best12.;
+format YSD_&reg.&i.			best12.;
+format Surp_&reg.&i.		best12.;
+format Surp_B_&reg.&i.		best12.;
+format YSurp_&reg.&i.		best12.;
+format Ratio_&reg.&i.		best12.;
+
+%end;
+
+input Date Time Interval
+	  %do i= 1 %to &count.;
+	  PS_&reg.&i.		
+	  Diff_&reg.&i.			
+	  SD_&reg.&i.
+	  SD_B_&reg.&i.	
+	  YSD_&reg.&i.			
+	  Surp_&reg.&i.	
+	  Surp_B_&reg.&i.
+	  YSurp_&reg.&i.		
+	  Ratio_&reg.&i. %end;
+;
+run;
+
+%mend data_import_e;
+
+%data_import_e (US, 27);
+%data_import_e (EU, 19);
+%data_import_e (GER, 13);
+%data_import_e (HUN, 13);
+
+%macro subsample2 (reg);
+
+data E_&reg._Final;
+set E_&reg._Final;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+run;
+
+%mend subsample2;
+
+%subsample2 (US);
+%subsample2 (EU);
+%subsample2 (GER);
+%subsample2 (HUN);
+
+*uploading US central bank news dataset;
+
+data C_US;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_US\Output\C_US.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_US28 		best32.;
+informat Diff_US28 		best32.;
+informat SD_US28 		best32.;
+informat SD_B_US28 		best32.;
+informat YSD_US28 		best32.;
+informat Surp_US28 		best32.;
+informat Surp_B_US28 	best32.;
+informat YSurp_US28 	best32.;
+informat Ratio_US28 	best32.;
+informat PS_US29 		best32.;
+informat Diff_US29 		best32.;
+informat SD_US29 		best32.;
+informat SD_B_US29 		best32.;
+informat YSD_US29 		best32.;
+informat Surp_US29 		best32.;
+informat Surp_B_US29 	best32.;
+informat YSurp_US29 	best32.;
+informat Ratio_US29 	best32.;
+informat PS_US30 		best32.;
+informat PS_US31 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_US28 			best12.;
+format Diff_US28 		best12.;
+format SD_US28 			best12.;
+format SD_B_US28 		best12.;
+format YSD_US28 		best12.;
+format Surp_US28 		best12.;
+format Surp_B_US28 		best12.;
+format YSurp_US28 		best12.;
+format Ratio_US28 		best12.;
+format PS_US29 			best12.;
+format Diff_US29 		best12.;
+format SD_US29 			best12.;
+format SD_B_US29 		best12.;
+format YSD_US29 		best12.;
+format Surp_US29 		best12.;
+format Surp_B_US29 		best12.;
+format YSurp_US29 		best12.;
+format Ratio_US29 		best12.;
+format PS_US30 			best12.;
+format PS_US31 			best12.;
+
+input Date
+      Time
+      Interval
+      PS_US28 		
+	  Diff_US28 	
+	  SD_US28 		
+	  SD_B_US28 	
+	  YSD_US28 	
+	  Surp_US28 	
+	  Surp_B_US28 	
+	  YSurp_US28 	
+	  Ratio_US28 	
+	  PS_US29 		
+	  Diff_US29 	
+	  SD_US29 		
+	  SD_B_US29 	
+	  YSD_US29 	
+	  Surp_US29 	
+	  Surp_B_US29 	
+	  YSurp_US29 	
+	  Ratio_US29 	
+	  PS_US30 		
+	  PS_US31; 		
+
+run;
+
+data C_US;
+set C_US;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+run;
+
+%macro speech (count);
+
+data Speech;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\3-Speech_US\Output\Speech.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best12.;
+
+%do i= 1 %to &count.;
+
+informat SP&i. 			best12.;
+
+%end;
+
+informat Total 			best12.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+
+%do i= 1 %to &count.;
+
+format SP&i. 			best12.;
+
+%end;
+
+format Total 			best12.;
+
+input Date Time Interval
+	  %do i= 1 %to &count.;
+	  SP&i. %end;
+	  Total;
+
+run;
+
+%mend speech;
+
+%speech (35);
+
+data Speech;
+set Speech;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+run;
+
+*uploading Hungary central bank dataset;
+
+data C_HUN;
+
+infile 'C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_HUN\Output\C_HUN.csv'
+delimiter = ',' missover dsd lrecl=32767 firstobs=2 ;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Interval 		best32.;
+informat PS_HUN14 		best32.;
+informat Diff_HUN14 	best32.;
+informat SD_HUN14 		best32.;
+informat SD_B_HUN14 	best32.;
+informat YSD_HUN14 		best32.;
+informat Surp_HUN14 	best32.;
+informat Surp_B_HUN14 	best32.;
+informat YSurp_HUN14 	best32.;
+informat Ratio_HUN14 	best32.;
+informat PS_HUN15 		best32.;
+informat PS_HUN16 		best32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Interval 		best12.;
+format PS_HUN14 		best12.;
+format Diff_HUN14 		best12.;
+format SD_HUN14 		best12.;
+format SD_B_HUN14 		best12.;
+format YSD_HUN14 		best12.;
+format Surp_HUN14 		best12.;
+format Surp_B_HUN14 	best12.;
+format YSurp_HUN14 		best12.;
+format Ratio_HUN14 		best12.;
+format PS_HUN15 		best12.;
+format PS_HUN16 		best12.;
+
+input Date
+      Time
+      Interval
+      PS_HUN14 	
+	  Diff_HUN14 	
+      SD_HUN14 	
+      SD_B_HUN14 	
+      YSD_HUN14 	
+      Surp_HUN14 	
+	  Surp_B_HUN14 
+	  YSurp_HUN14 	
+	  Ratio_HUN14 	
+	  PS_HUN15 	
+	  PS_HUN16; 	
+
+run;
+
+data C_HUN;
+set C_HUN;
+
+Year= year (Date);
+if Year ge 2010 and Year le 2017;
+run;
+
+%macro negative_positive_zero_e (reg, count);
+
+data E_&reg._Final;
+set E_&reg._Final;
+
+%do i= 1 %to &count.;
+
+if PS_&reg.&i.= 1 and Surp_&reg.&i.= 0 then Zero_&reg.&i.= 1; else Zero_&reg.&i.= 0;
+if Surp_&reg.&i.> 0 then Pos_&reg.&i.= 1; else Pos_&reg.&i.= 0;
+if Surp_&reg.&i.< 0 then Neg_&reg.&i.= 1; else Neg_&reg.&i.= 0;
+
+%end;
+run;
+
+data E_&reg._Final;
+retain Date Time Interval %do i= 1 %to &count.; PS_&reg.&i. Diff_&reg.&i. SD_&reg.&i. SD_B_&reg.&i. YSD_&reg.&i.
+	   Surp_&reg.&i. Surp_B_&reg.&i. YSurp_&reg.&i. Ratio_&reg.&i. Zero_&reg.&i. Pos_&reg.&i. Neg_&reg.&i. %end;;
+
+set E_&reg._Final;
+run;
+
+data E_&reg._Final;
+set E_&reg._Final;
+
+Pos_Total= sum (of Pos:);
+Neg_Total= sum (of Neg:);
+
+if Pos_Total> 0 then Pos_&reg.= 1; else Pos_&reg.= 0;
+if Neg_Total> 0 then Neg_&reg.= 1; else Neg_&reg.= 0;
+run;
+
+%mend negative_positive_zero_e;
+
+%negative_positive_zero_e (US, 27);
+%negative_positive_zero_e (EU, 19);
+%negative_positive_zero_e (GER, 13);
+%negative_positive_zero_e (HUN, 13);
+
+data C_US;
+set C_US;
+
+if PS_US28= 1 and Surp_US28= 0 then Zero_US28= 1; else Zero_US28= 0;
+if PS_US29= 1 and Surp_US29= 0 then Zero_US29= 1; else Zero_US29= 0;
+
+if Surp_US28> 0 then Pos_US28= 1; else Pos_US28= 0;
+if Surp_US28< 0 then Neg_US28= 1; else Neg_US28= 0;
+if Surp_US29> 0 then Pos_US29= 1; else Pos_US29= 0;
+if Surp_US29< 0 then Neg_US29= 1; else Neg_US29= 0;
+
+Pos_Total= sum (of Pos:);
+Neg_Total= sum (of Neg:);
+
+if Pos_Total> 0 then Pos_US= 1; else Pos_US= 0;
+if Neg_Total> 0 then Neg_US= 1; else Neg_US= 0;
+run;
+
+data C_US;
+retain Date Time Interval PS_US28 Diff_US28 SD_US28 SD_B_US28 YSD_US28 Surp_US28 Surp_B_US28 YSurp_US28 Ratio_US28 Zero_US28 Pos_US28 Neg_US28
+						  PS_US29 Diff_US29 SD_US29 SD_B_US29 YSD_US29 Surp_US29 Surp_B_US29 YSurp_US29 Ratio_US29 Zero_US29 Pos_US29 Neg_US29
+						  PS_US30 PS_US31;
+set C_US;
+run;
+
+data C_HUN;
+set C_HUN;
+
+if PS_HUN14= 1 and Surp_HUN14= 0 then Zero_HUN14= 1; else Zero_HUN14= 0;
+
+if Surp_HUN14> 0 then Pos_HUN14= 1; else Pos_HUN14= 0;
+if Surp_HUN14< 0 then Neg_HUN14= 1; else Neg_HUN14= 0;
+run;
+
+%macro cb_retain (reg);
+
+data C_&reg.;
+retain Date Time Interval PS_&reg.14 Diff_&reg.14 SD_&reg.14 SD_B_&reg.14 YSD_&reg.14 Surp_&reg.14 Surp_B_&reg.14 YSurp_&reg.14 Ratio_&reg.14
+	   Zero_&reg.14 Pos_&reg.14 Neg_&reg.14 PS_&reg.15 PS_&reg.16;
+
+set C_&reg.;
+run;
+
+%mend cb_retain;
+
+%cb_retain (HUN);
+
+%macro merging_cur_eco (cur, reg);
+
+proc sort data= E_&reg._Final;
+by Date Interval;
+run;
+
+data &cur._E_&reg.;
+merge &cur. E_&reg._Final;
+by Date Interval;
+run;
+
+data &cur._E_&reg.;
+set &cur._E_&reg.;
+
+if Ask_Close= . or Bid_Close= . then delete;
+run;
+
+proc sort data= &cur._E_&reg. nodupkey;
+by Date Interval;
+run;
+
+%mend merging_cur_eco;
+
+%merging_cur_eco (HUF, US);
+%merging_cur_eco (HUF, EU);
+%merging_cur_eco (HUF, GER);
+%merging_cur_eco (HUF, HUN);
+
+%macro merging_cur_cb (cur, reg);
+
+proc sort data= C_&reg.;
+by Date Interval;
+run;
+
+data &cur._C_&reg.;
+merge &cur. C_&reg.;
+by Date Interval;
+run;
+
+data &cur._C_&reg.;
+set &cur._C_&reg.;
+
+if Ask_Close= . or Bid_Close= . then delete;
+run;
+
+proc sort data= &cur._C_&reg. nodupkey;
+by Date Interval;
+run;
+
+%mend merging_cur_cb;
+
+%merging_cur_cb (HUF, US);
+%merging_cur_cb (HUF, HUN);
+
+%macro merging_with_speech (cur);
+
+proc sort data= Speech;
+by Date Interval;
+run;
+
+data &cur._Speech;
+merge &cur. Speech;
+by Date Interval;
+run;
+
+data &cur._Speech;
+set &cur._Speech;
+
+if Ask_Close= . or Bid_Close= . then delete;
+run;
+
+proc sort data= &cur._Speech nodupkey;
+by Date Interval;
+run;
+
+%mend merging_with_speech;
+
+%merging_with_speech (HUF);
+
+%macro missing_values_e (cur, reg, count);
+
+data &cur._E_&reg.;
+set &cur._E_&reg.;
+
+%do i= 1 %to &count.;
+
+if PS_&reg.&i.= .		then 	PS_&reg.&i.= 0;
+if Diff_&reg.&i.= . 	then 	Diff_&reg.&i.= 0;
+if SD_&reg.&i.= .		then 	SD_&reg.&i.= 0;
+if SD_B_&reg.&i.= .		then 	SD_B_&reg.&i.= 0;
+if YSD_&reg.&i.= .		then 	YSD_&reg.&i.= 0;
+if Surp_&reg.&i.= .		then 	Surp_&reg.&i.=0;
+if Surp_B_&reg.&i.= .	then 	Surp_B_&reg.&i.= 0;
+if YSurp_&reg.&i.= .	then 	YSurp_&reg.&i.=0;
+if Ratio_&reg.&i.= .	then 	Ratio_&reg.&i.= 0;
+if Pos_&reg.&i.= .		then 	Pos_&reg.&i.= 0;
+if Neg_&reg.&i.= .		then 	Neg_&reg.&i.= 0;
+if Zero_&reg.&i.= .		then 	Zero_&reg.&i.= 0;
+if Pos_Total= .			then	Pos_Total= 0;
+if Neg_Total= .			then	Neg_Total= 0;
+if Pos_&reg.= .			then 	Pos_&reg.= 0;
+if Neg_&reg.= .			then 	Neg_&reg.= 0;
+
+%end;
+run;
+
+%mend missing_values_e;
+
+%missing_values_e (HUF, US, 27);
+%missing_values_e (HUF, EU, 19);
+%missing_values_e (HUF, GER, 13);
+%missing_values_e (HUF, HUN, 13);
+
+%macro missing_values_c (cur, reg, begin, end);
+
+data &cur._C_&reg.;
+set &cur._C_&reg.;
+
+%do i= &begin. %to &end.;
+
+if PS_&reg.&i.= .		then 	PS_&reg.&i.= 0;
+if Diff_&reg.&i.= . 	then 	Diff_&reg.&i.= 0;
+if SD_&reg.&i.= .		then 	SD_&reg.&i.= 0;
+if SD_B_&reg.&i.= .		then 	SD_B_&reg.&i.= 0;
+if YSD_&reg.&i.= .		then 	YSD_&reg.&i.= 0;
+if Surp_&reg.&i.= .		then 	Surp_&reg.&i.=0;
+if Surp_B_&reg.&i.= .	then 	Surp_B_&reg.&i.= 0;
+if YSurp_&reg.&i.= .	then 	YSurp_&reg.&i.=0;
+if Ratio_&reg.&i.= .	then 	Ratio_&reg.&i.= 0;
+if Pos_&reg.&i.= .		then 	Pos_&reg.&i.= 0;
+if Neg_&reg.&i.= .		then 	Neg_&reg.&i.= 0;
+if Zero_&reg.&i.= .		then 	Zero_&reg.&i.= 0;
+if Pos_Total= .			then	Pos_Total= 0;
+if Neg_Total= .			then	Neg_Total= 0;
+if Zero_&reg.= .		then 	Zero_&reg.= 0;
+if Pos_&reg.= .			then 	Pos_&reg.= 0;
+if Neg_&reg.= .			then 	Neg_&reg.= 0;
+
+%end;
+run;
+
+%mend missing_values_c;
+
+%missing_values_c (HUF, US, 28, 31);
+%missing_values_c (HUF, HUN, 14, 16);
+
+data HUF_C_US;
+set HUF_C_US;
+
+drop Diff_US30 SD_US30 SD_B_US30 YSD_US30 Surp_US30 Surp_B_US30 YSurp_US30 Ratio_US30 Zero_US30 Pos_US30 Neg_US30
+	 Diff_US31 SD_US31 SD_B_US31 YSD_US31 Surp_US31 Surp_B_US31 YSurp_US31 Ratio_US31 Zero_US31 Pos_US31 Neg_US31
+	 Zero_US;
+run;
+
+%macro cb_drop (cur, reg);
+
+data &cur._C_&reg.;
+set &cur._C_&reg.;
+
+drop Zero_&reg. Pos_&reg. Neg_&reg. Pos_Total Neg_Total
+	 Diff_&reg.15 SD_&reg.15 SD_B_&reg.15 YSD_&reg.15 Surp_&reg.15 Surp_B_&reg.15 YSurp_&reg.15 Ratio_&reg.15 Zero_&reg.15 Pos_&reg.15 Neg_&reg.15
+	 Diff_&reg.16 SD_&reg.16 SD_B_&reg.16 YSD_&reg.16 Surp_&reg.16 Surp_B_&reg.16 YSurp_&reg.16 Ratio_&reg.16 Zero_&reg.16 Pos_&reg.16 Neg_&reg.16;
+run;
+
+%mend cb_drop;
+
+%cb_drop (HUF, HUN);
+
+data HUF_Speech;
+set HUF_Speech;
+
+array SP{35} SP1-SP35;
+do i= 1 to 35;
+if SP{i}= . then SP{i}= 0; end;
+if Total= . then Total= 0;
+drop i;
+run;
+
+%macro exporting (cur, typ, reg);
+
+proc export data= &cur._&typ._&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility4-Match_Quote_News_Speech_HUN\Output\&cur._&typ._&reg..csv" 
+replace;
+run;
+
+%mend exporting;
+
+%exporting (HUF, E, US);
+%exporting (HUF, C, US);
+%exporting (HUF, E, EU);
+%exporting (HUF, E, GER);
+%exporting (HUF, E, HUN);
+%exporting (HUF, C, HUN);
+
+proc export data= HUF_Speech dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_HUN\Output\HUF_Speech.csv" 
+replace;
+run;
+
+*====================================
+               Summary
+=====================================;
+
+%macro summary_final_e (cur, reg, count);
+
+proc means data= &cur._E_&reg. nway noprint;
+var PS_&reg.1-PS_&reg.&count. Zero_&reg.1-Zero_&reg.&count. Neg_&reg.1-Neg_&reg.&count. Pos_&reg.1-Pos_&reg.&count. Pos_&reg. Neg_&reg.;
+output out= S&cur._E_&reg. (drop= _:) sum= /autoname;
+run;
+
+%mend summary_final_e;
+
+%summary_final_e (HUF, US, 27);
+%summary_final_e (HUF, EU, 19);
+%summary_final_e (HUF, GER, 13);
+%summary_final_e (HUF, HUN, 13);
+
+%macro summary_final_c_us (cur, reg, begin, end);
+
+proc means data= &cur._C_&reg. nway noprint;
+var PS_&reg.&begin.-PS_&reg.&end. Zero_US28 Zero_US29 Neg_US28 Neg_US29 Pos_US28 Pos_US29 Pos_US Neg_US;
+output out= S&cur._C_&reg. (drop= _:) sum= /autoname;
+run;
+
+%mend summary_final_c_us;
+
+%summary_final_c_us (HUF, US, 28, 31);
+
+%macro summary_final_c_reg (cur, reg, begin, end);
+
+proc means data= &cur._C_&reg. nway noprint;
+var PS_&reg.&begin.-PS_&reg.&end. Zero_&reg.14 Pos_&reg.14 Neg_&reg.14;
+output out= S&cur._C_&reg. (drop= _:) sum= /autoname;
+run;
+
+%mend summary_final_c_reg;
+
+%summary_final_c_reg (HUF, HUN, 14, 16);
+
+proc means data= HUF_Speech nway noprint;
+var SP1-SP35;
+output out= SHUF_Speech (drop= _:) sum= /autoname;
+run;
+
+%macro exporting_summary (cur, typ, reg);
+
+proc export data= S&cur._&typ._&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_HUN\Output\S&cur._&typ._&reg..csv" 
+replace;
+run;
+
+%mend exporting_summary;
+
+%exporting_summary (HUF, E, US);
+%exporting_summary (HUF, C, US);
+%exporting_summary (HUF, E, EU);
+%exporting_summary (HUF, E, GER);
+%exporting_summary (HUF, E, HUN);
+%exporting_summary (HUF, C, HUN);
+
+proc export data= SHUF_Speech dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_HUN\Output\SHUF_Speech.csv" 
+replace;
+run;
+
+*============================================
+                Data for Eviews
+=============================================;
+
+%macro eviews_dataset (cur, typ, reg);
+
+data Eviews_&cur._&typ._&reg.;
+set &cur._&typ._&reg.;
+
+drop Date Time Interval Day Year Ask_Close Bid_Close Price Return Volatility Volatility_YAvg Volatility_DAvg Volatility_SAvg
+	 Return_S Volatility_Mon_Avg Volatility_Tue_Avg Volatility_Wed_Avg Volatility_Thu_Avg Volatility_Fri_Avg
+
+	 Diff: YSD: YSurp: Pos_Total Neg_Total
+	 DW_Mon DW_Tue DW_Wed DW_Thu;
+
+run;
+
+%mend eviews_dataset;
+
+%eviews_dataset (HUF, C, US);
+%eviews_dataset (HUF, E, EU);
+%eviews_dataset (HUF, E, GER);
+%eviews_dataset (HUF, E, HUN);
+%eviews_dataset (HUF, C, HUN);
+
+data Eviews_HUF_E_US;
+set HUF_E_US;
+
+drop Diff: YSD: YSurp: Pos_Total Neg_Total;
+run;
+
+%macro eviews_abs_e (cur, reg, count);
+
+data Abs_&cur._E_&reg.;
+set Eviews_&cur._E_&reg.;
+
+%do i= 1 %to &count.;
+
+Abs_Surp_&reg.&i.= abs (Surp_&reg.&i.);
+
+%end;
+
+keep Abs_Surp_&reg.1-Abs_Surp_&reg.&count.;
+run;
+
+%mend eviews_abs_e;
+
+%eviews_abs_e (HUF, US, 27);
+%eviews_abs_e (HUF, EU, 19);
+%eviews_abs_e (HUF, GER, 13);
+%eviews_abs_e (HUF, HUN, 13);
+
+data Eviews_HUF_Speech;
+set HUF_Speech;
+
+drop Date Time Interval Day Year Ask_Close Bid_Close Price Return Volatility Volatility_YAvg Volatility_DAvg Volatility_SAvg
+	 Return_S Volatility_Mon_Avg Volatility_Tue_Avg Volatility_Wed_Avg Volatility_Thu_Avg Volatility_Fri_Avg
+	 DW_Mon DW_Tue DW_Wed DW_Thu;
+run;
+
+%macro eviews_exporting (cur, typ, reg);
+
+proc export data= Eviews_&cur._&typ._&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_HUN\Output\Eviews_&cur._&typ._&reg..csv" 
+replace;
+run;
+
+%mend eviews_exporting;
+
+%eviews_exporting (HUF, E, US);
+%eviews_exporting (HUF, C, US);
+%eviews_exporting (HUF, E, EU);
+%eviews_exporting (HUF, E, GER);
+%eviews_exporting (HUF, E, HUN);
+%eviews_exporting (HUF, C, HUN);
+
+proc export data= Eviews_HUF_Speech dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_HUN\Output\Eviews_HUF_Speech.csv" 
+replace;
+run;
+
+%macro eviews_abs_exporting (cur, reg);
+
+proc export data= Abs_&cur._E_&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\4-Match_Quote_News_Speech_HUN\Output\Abs_&cur._E_&reg..csv" 
+replace;
+run;
+
+%mend eviews_abs_exporting;
+
+%eviews_abs_exporting (HUF, US);
+%eviews_abs_exporting (HUF, EU);
+%eviews_abs_exporting (HUF, GER);
+%eviews_abs_exporting (HUF, HUN);
