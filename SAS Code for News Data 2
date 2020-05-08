@@ -1,0 +1,211 @@
+
+options mprint;
+
+%macro upload (reg); *uploading from country specific output destination;
+
+data &reg.;
+
+infile "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\&reg..csv" 
+delimiter= ',' missover dsd lrecl= 32767 firstobs= 2;
+
+informat Date 			mmddyy10.;
+informat Time 			time20.;
+informat Day 			$3.;
+informat Region 		$32.;
+informat Category 		$32.;
+informat Event 			$100.;
+informat Period 		$32.;
+informat Surv_Med 		best32.;
+informat Actual 		best32.;
+informat Surv_Avg 		best32.;
+informat Std_Dev_Surv 	best32.;
+informat Prior 			best32.;
+informat Revised 		best32.;
+informat Last_Rev 		best32.;
+informat Surp_Bloom 	best32.;
+informat S		 		best32.;
+informat Ticker 		$32.;
+
+format Date 			mmddyy10.;
+format Time 			time20.;
+format Day 				$3.;
+format Region 			$32.;
+format Category 		$32.;
+format Event 			$100.;
+format Period 			$32.;
+format Surv_Med 		best32.;
+format Actual 			best32.;
+format Surv_Avg 		best32.;
+format Std_Dev_Surv 	best32.;
+format Prior 			best32.;
+format Revised 			best32.;
+format Last_Rev 		best32.;
+format Surp_Bloom 		best32.;
+format S		 		best32.;
+format Ticker 			$32.;
+			
+input Date
+	  Time
+	  Day $
+      Region $
+      Category $
+      Event $
+      Period $
+      Surv_Med
+	  Actual
+      Surv_Avg
+      Std_Dev_Surv
+      Prior
+      Revised
+      Last_Rev
+      Surp_Bloom
+	  S
+	  Ticker $;
+run;
+
+%mend upload;
+
+%upload (US);
+
+data US123 US4 US5 US6 US7 US8 US9 US10 US11 US12 US13 US14 US15 US16 US17 US18 US19 US20 US21 US22 US23 US24 US25 US26 US27 US28 US29 US30 US31;
+set US; *extracting news. we would see US123 will be split into US1, US2 & US3 as GDP has 3 variants: Advanced, Preliminary & Final;
+
+length Code $5.;
+if Region= "United States";
+select (Event);
+
+when ("GDP Annualized QoQ") do;							Code= "US123"; 	output US123;	end;
+when ("Change in Nonfarm Payrolls") do; 				Code= "US4"; 	output US4; 	end;
+when ("Nonfarm Productivity") do; 						Code= "US5"; 	output US5; 	end;
+when ("ISM Milwaukee") do; 								Code= "US6"; 	output US6; 	end;
+when ("ISM Non-Manufacturing Index") do; 				Code= "US7"; 	output US7; 	end;
+when ("Unemployment Rate") do;							Code= "US8"; 	output US8;		end;
+when ("Retail Sales Ex Auto MoM") do; 					Code= "US9"; 	output US9; 	end;
+when ("Industrial Production MoM") do; 					Code= "US10"; 	output US10; 	end;
+when ("Personal Income") do; 							Code= "US11"; 	output US11; 	end;
+when ("Consumer Credit") do; 							Code= "US12"; 	output US12; 	end;
+when ("New Home Sales") do; 							Code= "US13"; 	output US13; 	end;
+when ("Personal Consumption") do; 						Code= "US14"; 	output US14; 	end;
+when ("Durable Goods Orders") do; 						Code= "US15"; 	output US15; 	end;
+when ("Factory Orders") do; 							Code= "US16"; 	output US16; 	end;
+when ("Construction Spending MoM") do; 					Code= "US17"; 	output US17; 	end;
+when ("Business Inventories") do; 						Code= "US18"; 	output US18; 	end;
+when ("Monthly Budget Statement") do; 					Code= "US19"; 	output US19; 	end;
+when ("Trade Balance") do;								Code= "US20"; 	output US20;	end;
+when ("PPI MoM", "PPI Final Demand MoM") do;			Code= "US21"; 	output US21;	end;
+when ("CPI MoM") do;									Code= "US22"; 	output US22;	end;
+when ("Conf. Board Consumer Confidence") do;			Code= "US23"; 	output US23;	end;
+when ("ISM Manufacturing") do;							Code= "US24"; 	output US24;	end;
+when ("Housing Starts") do;								Code= "US25"; 	output US25;	end;
+when ("Leading Index") do;								Code= "US26"; 	output US26;	end;
+when ("Capacity Utilization") do;						Code= "US27"; 	output US27;	end;
+when ("FOMC Rate Decision (Upper Bound)") do;			Code= "US28"; 	output US28;	end; *Central Bank;
+when ("FOMC Rate Decision (Lower Bound)") do;			Code= "US29"; 	output US29;	end; *Central Bank;
+when ("FOMC Meeting Minutes") do;						Code= "US30"; 	output US30;	end; *Central Bank;
+when ("Fed's Beige Book",
+		"U.S. Federal Reserve Releases Beige Book",
+		"Fed Beige Book",
+		"U.S. Fed Beige Book Release",
+		"U.S. Federal Reserve Beige Book") do;			Code= "US31"; 	output US31;	end; *Central Bank;
+otherwise;
+
+end;
+run;
+
+data US21; *making the wording of the event same. there were variants of PPI MoM;
+set US21;
+
+if Code= "US21" then Event= "PPI MoM";
+run;
+
+data US31; *making the wording of the event same. there were variants of Fed Beige Book;
+set US31;
+
+if Code= "US31" then Event= "Fed Beige Book";
+run;
+
+data US1; *splitting US123;
+set US123;
+
+Code= "US1";
+where Period contains 'A'; *GDP Advanced;
+Event= "GDP Advanced";
+run;
+
+data US2; *splitting US123;
+set US123;
+
+Code= "US2";
+where Period contains 'P' or Period contains 'S'; *GDP Preliminary;
+Event= "GDP Preliminary";
+run;
+
+data US3; *splitting US123;
+set US123;
+
+Code= "US3";
+where Period contains 'F' or Period contains 'T'; *GDP Final;
+Event= "GDP Final";
+run;
+
+%macro combine_e (reg, count); *combining all economic news data of each country;
+
+data E_&reg.;
+set %do i= 1 %to &count.;
+&reg.&i %end;;
+run;
+
+data E_&reg.;
+set E_&reg.;
+
+if Date= . or Time= . or Event= ' ' then delete;
+run;
+
+%mend combine_e;
+
+%combine_e (US, 31);
+
+%macro sorting_exporting (reg); *exporting to work with dummy variables later;
+
+proc sort data= E_&reg.;
+by Date Time;
+run;
+
+proc export data= E_&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\E_&reg..csv" 
+replace;
+run;
+
+%mend sorting_exporting;
+
+%sorting_exporting (US);
+
+*creating summary table for country specific economic news data;
+
+%macro summary_e (reg);
+
+data E_&reg.;
+set E_&reg.;
+
+if Actual= 9999 or Surv_Med= 9999 then delete;
+run;
+
+proc means data= E_&reg. nway noprint;
+class Event;
+output out= SE_&reg.; *SE stands for summary of eco news;
+run;
+
+data SE_&reg.;
+set SE_&reg.;
+
+if _STAT_ ne 'MEAN' and _STAT_ ne 'STD';
+run;
+
+proc export data= SE_&reg. dbms= csv 
+outfile= "C:\Users\Deepan\OneDrive\Brock Studies\Fall 2018\Thesis\Shared\New\1-Return and Volatility\2-News_&reg.\Output\SE_&reg..csv" 
+replace;
+run;
+
+%mend summary_e;
+
+%summary_e (US);
